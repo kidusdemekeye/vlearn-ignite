@@ -18,7 +18,7 @@
   --warn: #c0352b;
   --p-dns: #9a5800; --p-tcp: #2459c4; --p-udp: #4b6fa8; --p-ip: #3f5b73; --p-tls: #7440bf;
   --p-http: #16804d; --p-quic: #8a4bb0; --p-arp: #b23d6b; --p-icmp: #0b8585; --p-dhcp: #7d6a00;
-  --p-ssh: #5a5a5a; --p-smtp: #a1501f; --p-bgp: #6b4f2a; --p-note: #566778;
+  --p-ssh: #5a5a5a; --p-smtp: #a1501f; --p-bgp: #6b4f2a; --p-note: #566778; --p-wifi: #5f7d14;
   --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -31,7 +31,7 @@
     --accent: #3fb4d1; --accent-ink: #061218; --warn: #ff7a6e;
     --p-dns: #f0a33c; --p-tcp: #6f9bff; --p-udp: #8fb0e3; --p-ip: #9fb6c9; --p-tls: #b48cf2;
     --p-http: #4fcf8a; --p-quic: #c48ce6; --p-arp: #f07ba8; --p-icmp: #3fd0cc; --p-dhcp: #d9c24a;
-    --p-ssh: #b8b8b8; --p-smtp: #ee9a64; --p-bgp: #c9a571; --p-note: #93a4b4;
+    --p-ssh: #b8b8b8; --p-smtp: #ee9a64; --p-bgp: #c9a571; --p-note: #93a4b4; --p-wifi: #b5d35a;
     --on-p: #071019;
     color-scheme: dark;
   }
@@ -41,7 +41,7 @@
   --accent: #3fb4d1; --accent-ink: #061218; --warn: #ff7a6e;
   --p-dns: #f0a33c; --p-tcp: #6f9bff; --p-udp: #8fb0e3; --p-ip: #9fb6c9; --p-tls: #b48cf2;
   --p-http: #4fcf8a; --p-quic: #c48ce6; --p-arp: #f07ba8; --p-icmp: #3fd0cc; --p-dhcp: #d9c24a;
-  --p-ssh: #b8b8b8; --p-smtp: #ee9a64; --p-bgp: #c9a571; --p-note: #93a4b4;
+  --p-ssh: #b8b8b8; --p-smtp: #ee9a64; --p-bgp: #c9a571; --p-note: #93a4b4; --p-wifi: #b5d35a;
   --on-p: #071019;
   color-scheme: dark;
 }
@@ -50,7 +50,7 @@
 [data-proto="IP"] { --pc: var(--p-ip); } [data-proto="TLS"] { --pc: var(--p-tls); } [data-proto="HTTP"] { --pc: var(--p-http); }
 [data-proto="QUIC"] { --pc: var(--p-quic); } [data-proto="ARP"] { --pc: var(--p-arp); } [data-proto="ICMP"] { --pc: var(--p-icmp); }
 [data-proto="DHCP"] { --pc: var(--p-dhcp); } [data-proto="SSH"] { --pc: var(--p-ssh); } [data-proto="SMTP"] { --pc: var(--p-smtp); }
-[data-proto="BGP"] { --pc: var(--p-bgp); } [data-proto="NOTE"] { --pc: var(--p-note); }
+[data-proto="BGP"] { --pc: var(--p-bgp); } [data-proto="NOTE"] { --pc: var(--p-note); } [data-proto="802.11"] { --pc: var(--p-wifi); }
 
 * { box-sizing: border-box; }
 body {
@@ -317,4 +317,10 @@ footer { font-size: 13px; color: var(--muted); }
   <footer>Space plays and pauses. Arrow keys step through. Click a row in the packet log to jump to it.</footer>
 </div>
 
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
 <script type="module" src="app.js"></script>
