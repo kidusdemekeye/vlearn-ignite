@@ -1,0 +1,95 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import JSZip from "jszip";
+import {
+  slideXmlToText,
+  docXmlToText,
+  slideOrder,
+  truncateModule,
+  extractPptx,
+  extractDocx,
+  readModuleFile,
+} from "../app/ingest.js";
+
+const NO_TEXT = "This file has no readable text (it may be scanned images).";
+const BAD_TYPE = "Please upload a PDF, PowerPoint (.pptx), Word (.docx) or text file.";
+
+test("slideXmlToText decodes entities and joins runs per paragraph", () => {
+  const xml =
+    "<p:sld><a:p><a:r><a:t>TCP &amp; UDP</a:t></a:r><a:r><a:t> basics</a:t></a:r></a:p>" +
+    "<a:p><a:r><a:t>&lt;SYN&gt; &quot;ok&quot; &apos;x&apos; &#65;&#x42;</a:t></a:r></a:p></p:sld>";
+  assert.equal(slideXmlToText(xml), "TCP & UDP basics\n<SYN> \"ok\" 'x' AB");
+});
+
+test("docXmlToText turns paragraphs into lines", () => {
+  const xml =
+    "<w:body><w:p><w:r><w:t>Heading</w:t></w:r></w:p>" +
+    '<w:p><w:r><w:t xml:space="preserve">Hello </w:t></w:r><w:r><w:t>A&amp;B</w:t></w:r></w:p></w:body>';
+  assert.equal(docXmlToText(xml), "Heading\nHello A&B");
+});
+
+test("slideOrder sorts numerically", () => {
+  assert.deepEqual(
+    slideOrder(["ppt/slides/slide10.xml", "ppt/slides/slide2.xml", "ppt/slides/slide1.xml", "ppt/slides/_rels/slide1.xml.rels"]),
+    ["ppt/slides/slide1.xml", "ppt/slides/slide2.xml", "ppt/slides/slide10.xml"],
+  );
+});
+
+test("truncateModule keeps every part's first line and stays under max", () => {
+  const parts = Array.from({ length: 10 }, (_, i) => ({
+    label: `[slide ${i + 1}]`,
+    text: `Title ${i + 1}\n` + "body ".repeat(500),
+  }));
+  const out = truncateModule(parts, 1000);
+  assert.ok(out.length <= 1000);
+  for (let i = 1; i <= 10; i++) assert.ok(out.includes(`Title ${i}`), "missing title " + i);
+});
+
+test("truncateModule returns everything when under max", () => {
+  const out = truncateModule([{ label: "[page 1]", text: "a\nb" }, { label: "[page 2]", text: "c" }], 1000);
+  assert.equal(out, "[page 1]\na\nb\n\n[page 2]\nc");
+});
+
+async function makePptx() {
+  const zip = new JSZip();
+  const slide = (t) => `<p:sld><a:p><a:r><a:t>${t}</a:t></a:r></a:p></p:sld>`;
+  zip.file("ppt/slides/slide2.xml", slide("Second &amp; last"));
+  zip.file("ppt/slides/slide1.xml", slide("First"));
+  return zip;
+}
+
+test("extractPptx reads slides in order with markers", async () => {
+  const r = await extractPptx(await makePptx());
+  assert.equal(r.slides, 2);
+  assert.equal(r.pages, 0);
+  assert.ok(r.text.indexOf("[slide 1]\nFirst") >= 0);
+  assert.ok(r.text.indexOf("[slide 2]\nSecond & last") > r.text.indexOf("[slide 1]"));
+});
+
+test("extractDocx chunks paragraphs into pages", async () => {
+  const zip = new JSZip();
+  const p = (t) => `<w:p><w:r><w:t>${t}</w:t></w:r></w:p>`;
+  zip.file("word/document.xml", "<w:body>" + Array.from({ length: 10 }, (_, i) => p("para" + i + " " + "x".repeat(700))).join("") + "</w:body>");
+  const r = await extractDocx(zip);
+  assert.ok(r.pages >= 2);
+  assert.equal(r.slides, 0);
+  assert.ok(r.text.startsWith("[page 1]\npara0"));
+  assert.ok(r.text.includes("[page 2]"));
+});
+
+test("readModuleFile reads pptx, txt and rejects bad input", async () => {
+  const buf = await (await makePptx()).generateAsync({ type: "uint8array" });
+  const pptx = { name: "Net Intro.pptx", arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) };
+  const r = await readModuleFile(pptx, { JSZip });
+  assert.equal(r.title, "Net Intro");
+  assert.equal(r.slides, 2);
+
+  const txt = { name: "notes.md", text: async () => "Hello\n\nWorld" };
+  const t = await readModuleFile(txt);
+  assert.equal(t.title, "notes");
+  assert.equal(t.pages, 1);
+  assert.ok(t.text.startsWith("[page 1]\nHello"));
+
+  await assert.rejects(readModuleFile({ name: "e.txt", text: async () => "  \n " }), { message: NO_TEXT });
+  await assert.rejects(readModuleFile({ name: "x.exe", text: async () => "x" }), { message: BAD_TYPE });
+});

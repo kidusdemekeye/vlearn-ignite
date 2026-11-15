@@ -1,0 +1,138 @@
+// Reading uploaded modules (PDF, PPTX, DOCX, text) in the browser.
+// No npm imports: JSZip and pdf.js are browser globals loaded from a CDN.
+
+export const MAX_MODULE_CHARS = 25000;
+const CHUNK_CHARS = 3000;
+const ERR_EMPTY = "This file has no readable text (it may be scanned images).";
+const ERR_TYPE = "Please upload a PDF, PowerPoint (.pptx), Word (.docx) or text file.";
+
+function decodeEntities(s) {
+  return s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+function runsToText(xml, paraRe, runRe) {
+  const lines = [];
+  for (const para of xml.match(paraRe) || []) {
+    let line = "";
+    for (const m of para.matchAll(runRe)) line += m[1];
+    line = decodeEntities(line).trim();
+    if (line) lines.push(line);
+  }
+  return lines.join("\n");
+}
+
+export function slideXmlToText(xml) {
+  return runsToText(String(xml), /<a:p[ >][\s\S]*?<\/a:p>/g, /<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/g);
+}
+
+export function docXmlToText(xml) {
+  return runsToText(String(xml), /<w:p[ >][\s\S]*?<\/w:p>/g, /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g);
+}
+
+export function slideOrder(paths) {
+  const num = (p) => Number(/ppt\/slides\/slide(\d+)\.xml$/.exec(p)?.[1]);
+  return paths
+    .filter((p) => /^ppt\/slides\/slide\d+\.xml$/.test(p))
+    .sort((a, b) => num(a) - num(b));
+}
+
+export function truncateModule(parts, max = MAX_MODULE_CHARS) {
+  const heads = parts.map((p) => {
+    const [first, ...rest] = String(p.text).split("\n");
+    return { head: `${p.label}\n${first}`, rest: rest.join("\n") };
+  });
+  const sep = "\n\n";
+  let used = heads.reduce((n, h) => n + h.head.length, 0) + sep.length * Math.max(0, heads.length - 1);
+  const out = heads.map((h) => h.head);
+  for (let i = 0; i < heads.length; i++) {
+    const room = max - used - 1; // 1 for the newline joining body to head
+    if (room <= 0 || !heads[i].rest) continue;
+    const body = heads[i].rest.slice(0, room);
+    out[i] += "\n" + body;
+    used += body.length + 1;
+  }
+  return out.join(sep).slice(0, max);
+}
+
+export async function extractPptx(zip) {
+  const names = slideOrder(Object.keys(zip.files));
+  const parts = [];
+  for (let i = 0; i < names.length; i++) {
+    const text = slideXmlToText(await zip.file(names[i]).async("string"));
+    parts.push({ label: `[slide ${i + 1}]`, text });
+  }
+  return finish(parts, 0, parts.length);
+}
+
+function chunkText(text) {
+  const paras = text.split(/\n+/).filter((p) => p.trim());
+  const chunks = [];
+  let cur = "";
+  for (const p of paras) {
+    if (cur && cur.length + p.length + 1 > CHUNK_CHARS) {
+      chunks.push(cur);
+      cur = "";
+    }
+    cur += (cur ? "\n" : "") + p;
+  }
+  if (cur) chunks.push(cur);
+  return chunks;
+}
+
+function chunkedParts(text) {
+  return chunkText(text).map((t, i) => ({ label: `[page ${i + 1}]`, text: t }));
+}
+
+export async function extractDocx(zip) {
+  const file = zip.file("word/document.xml");
+  if (!file) throw new Error(ERR_EMPTY);
+  const parts = chunkedParts(docXmlToText(await file.async("string")));
+  return finish(parts, parts.length, 0);
+}
+
+function finish(parts, pages, slides) {
+  const nonEmpty = parts.filter((p) => p.text.trim());
+  if (!nonEmpty.length) throw new Error(ERR_EMPTY);
+  return { text: truncateModule(parts.filter((p) => p.text.trim()), MAX_MODULE_CHARS), pages, slides };
+}
+
+async function extractPdf(buffer, pdfjsLib) {
+  if (!pdfjsLib) throw new Error("PDF reader is not loaded yet. Please try again in a moment.");
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const parts = [];
+  for (let n = 1; n <= pdf.numPages; n++) {
+    const page = await pdf.getPage(n);
+    const content = await page.getTextContent();
+    parts.push({ label: `[page ${n}]`, text: content.items.map((it) => it.str).join(" ").replace(/\s+/g, " ").trim() });
+  }
+  const r = finish(parts, pdf.numPages, 0);
+  return r;
+}
+
+export async function readModuleFile(file, { JSZip = globalThis.JSZip, pdfjsLib = globalThis.pdfjsLib } = {}) {
+  const name = String(file.name || "");
+  const m = /^(.*)\.([^.]+)$/.exec(name);
+  const title = (m ? m[1] : name).trim() || "Module";
+  const ext = (m ? m[2] : "").toLowerCase();
+  let r;
+  if (ext === "pptx" || ext === "docx") {
+    if (!JSZip) throw new Error("File reader is not loaded yet. Please try again in a moment.");
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+    r = ext === "pptx" ? await extractPptx(zip) : await extractDocx(zip);
+  } else if (ext === "pdf") {
+    r = await extractPdf(await file.arrayBuffer(), pdfjsLib);
+  } else if (ext === "txt" || ext === "md") {
+    const parts = chunkedParts(await file.text());
+    r = finish(parts, parts.length, 0);
+  } else {
+    throw new Error(ERR_TYPE);
+  }
+  return { title, text: r.text, pages: r.pages, slides: r.slides };
+}
