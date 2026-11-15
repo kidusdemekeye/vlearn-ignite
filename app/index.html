@@ -219,8 +219,9 @@ li[data-state="building"] .st::before { content: ""; display: inline-block; widt
 /* Player screen: 2D svg, 3D canvas, 2D card, 2D OSI stack, waiting */
 .course-bar { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .course-bar .item-title { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 12ch; }
-.view3d { aspect-ratio: 16 / 9; background: var(--sunk); }
-.view3d canvas { outline: none; }
+.view3d { position: relative; aspect-ratio: 16 / 9; background: var(--sunk); }
+/* The canvas is absolutely placed so its drawn size never holds the box open when the window narrows. */
+.view3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
 .screen-alt { min-height: clamp(300px, 46vw, 540px); display: grid; align-content: center; padding: clamp(16px, 4vw, 40px); }
 .card2d { gap: 14px; justify-items: start; }
 .card2d h3 { margin: 0; font: 800 clamp(24px, 3.4vw, 38px)/1.1 var(--display); letter-spacing: -0.02em; text-wrap: balance; }

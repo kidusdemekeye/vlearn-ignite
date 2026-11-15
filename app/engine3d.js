@@ -1260,7 +1260,7 @@ export class Stage3D {
     if (h < 60) h = Math.round(clamp(w * 0.58, 260, 620));
     if (w === this.width && h === this.height) return;
     this.width = w; this.height = h;
-    this.renderer.setSize(w, h, true);
+    this.renderer.setSize(w, h, false); // CSS sizes the canvas (index.html .view3d canvas)
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     if (this.lastFrame) {
