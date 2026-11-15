@@ -8,10 +8,13 @@ const MIN_HEAD = 20;
 const ERR_EMPTY = "This file has no readable text (it may be scanned images).";
 const ERR_TYPE = "Please upload a PDF, PowerPoint (.pptx), Word (.docx) or text file.";
 
+// An out-of-range code point would throw a RangeError: keep the original text instead.
+const codePoint = (m, n) => (n >= 0 && n <= 0x10ffff ? String.fromCodePoint(n) : m);
+
 function decodeEntities(s) {
   return s
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (m, h) => codePoint(m, parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (m, d) => codePoint(m, parseInt(d, 10)))
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
@@ -19,23 +22,32 @@ function decodeEntities(s) {
     .replace(/&amp;/g, "&");
 }
 
-function runsToText(xml, paraRe, runRe) {
+// Line breaks and run-level tabs become text runs, so words don't run together.
+// (Tab stops in paragraph properties carry attributes and are left alone.)
+function breaksToRuns(para, ns) {
+  return para
+    .replace(new RegExp(`<${ns}:br\\b[^>]*?(?:\\/>|>[\\s\\S]*?<\\/${ns}:br>)`, "g"), `<${ns}:t>\n</${ns}:t>`)
+    .replace(new RegExp(`<${ns}:tab\\s*\\/>`, "g"), `<${ns}:t> </${ns}:t>`);
+}
+
+function runsToText(xml, paraRe, runRe, ns) {
   const lines = [];
-  for (const para of xml.match(paraRe) || []) {
+  for (const raw of xml.match(paraRe) || []) {
+    const para = breaksToRuns(raw, ns);
     let line = "";
     for (const m of para.matchAll(runRe)) line += m[1];
-    line = decodeEntities(line).trim();
+    line = decodeEntities(line).split("\n").map((l) => l.trim()).filter(Boolean).join("\n");
     if (line) lines.push(line);
   }
   return lines.join("\n");
 }
 
 export function slideXmlToText(xml) {
-  return runsToText(String(xml), /<a:p[ >][\s\S]*?<\/a:p>/g, /<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/g);
+  return runsToText(String(xml), /<a:p[ >][\s\S]*?<\/a:p>/g, /<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/g, "a");
 }
 
 export function docXmlToText(xml) {
-  return runsToText(String(xml), /<w:p[ >][\s\S]*?<\/w:p>/g, /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g);
+  return runsToText(String(xml), /<w:p[ >][\s\S]*?<\/w:p>/g, /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g, "w");
 }
 
 export function slideOrder(paths) {

@@ -171,3 +171,18 @@ test("truncateModule merges slide ranges too (n=3000)", () => {
   assert.ok(out.length <= 25000);
   assert.ok(/\[slides \d+-3000\]/.test(out));
 });
+
+test("out-of-range numeric entities are kept as text instead of throwing", () => {
+  const xml = "<a:p><a:r><a:t>bad &#x110000; &#99999999; ok &#65;</a:t></a:r></a:p>";
+  assert.equal(slideXmlToText(xml), "bad &#x110000; &#99999999; ok A");
+  assert.equal(docXmlToText("<w:p><w:r><w:t>x &#x7FFFFFFF;</w:t></w:r></w:p>"), "x &#x7FFFFFFF;");
+});
+
+test("line breaks and tabs inside a paragraph keep words apart", () => {
+  const slide = "<a:p><a:r><a:t>Port</a:t></a:r><a:br/><a:r><a:t>numbers</a:t></a:r>" +
+    "<a:br><a:rPr lang=\"en-US\"/></a:br><a:r><a:t>TCP</a:t></a:r><a:tab/><a:r><a:t>UDP</a:t></a:r></a:p>";
+  assert.equal(slideXmlToText(slide), "Port\nnumbers\nTCP UDP");
+  const doc = "<w:p><w:pPr><w:tabs><w:tab w:val=\"left\" w:pos=\"720\"/></w:tabs></w:pPr>" +
+    "<w:r><w:t>Layer</w:t><w:tab/><w:t>4</w:t><w:br/><w:t>Transport</w:t><w:br w:type=\"page\"/><w:t>end</w:t></w:r></w:p>";
+  assert.equal(docXmlToText(doc), "Layer 4\nTransport\nend");
+});
