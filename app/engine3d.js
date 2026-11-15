@@ -418,7 +418,7 @@ export class Stage3D {
     const osi = this.#buildOsi();
     this.modeGroup.add(osi.group);
     this.#frameBox(new THREE.Box3(new THREE.Vector3(-4.5, 0, -0.6), new THREE.Vector3(4.5, 4.55, 0.9)),
-      { elev: 0.16, azim: 0, instant: true, fill: 0.94 });
+      { elev: 0.09, azim: 0, instant: true, fill: 0.94 });
     const list = Array.isArray(steps) ? steps : [];
     return (async () => {
       let prev = null;
@@ -1292,7 +1292,7 @@ export class Stage3D {
       this.sun.position.copy(v.target).add(new THREE.Vector3(-4, 9, 6));
 
       // keep screen labels at a constant on-screen size (like the 2D view)
-      const ui = clamp(this.width / 820, 0.66, 1.1);
+      const ui = clamp(this.width / 820, 0.58, 1.1);
       const unitsPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) / this.height;
       const p = new THREE.Vector3();
       this.scene.traverseVisible((o) => {
