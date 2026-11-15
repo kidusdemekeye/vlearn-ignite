@@ -57,7 +57,7 @@ Student question
 - **The contract** (`src/lesson-contract.ts`) is the one format every part agrees on: devices, links, packets and ordered steps. Each step has narration and at least one citation.
 - **The AI never draws.** It only writes the script. Plain code animates it, so the animation can't "hallucinate" visually.
 - **The validator** rejects anything impossible: a packet jumping between devices that aren't connected, an unknown device, a made-up source. Errors go back to Claude to fix, up to two retries.
-- **Sources come from a vetted library** of RFCs and NIST guidance. Claude can only cite from that list; any other URL is rejected.
+- **Sources come from a vetted library** of RFCs, IEEE and NIST standards (and, for uploaded modules, the module's own pages). Claude can only cite from that list; any other URL is rejected.
 - **Hand-checked "golden" lessons** play instantly and double as test fixtures.
 
 ## 7. Trust and security (by design)
