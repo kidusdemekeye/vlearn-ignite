@@ -4,6 +4,7 @@
 export const MAX_MODULE_CHARS = 25000;
 const CHUNK_CHARS = 3000;
 const HEAD_MAX = 200;
+const MIN_HEAD = 20;
 const ERR_EMPTY = "This file has no readable text (it may be scanned images).";
 const ERR_TYPE = "Please upload a PDF, PowerPoint (.pptx), Word (.docx) or text file.";
 
@@ -45,11 +46,14 @@ export function slideOrder(paths) {
 }
 
 export function truncateModule(parts, max = MAX_MODULE_CHARS) {
+  const n = parts.length;
+  const budget = n ? Math.floor((max - 2 * (n - 1)) / n) : 0;
   const heads = parts.map((p) => {
     const [first, ...others] = String(p.text).split("\n");
-    const head = first.slice(0, HEAD_MAX);
-    const rest = [first.slice(HEAD_MAX), ...others].join("\n").replace(/^\n/, "");
-    return { head: `${p.label}\n${head}`, rest };
+    let cap = Math.min(HEAD_MAX, budget - p.label.length - 1);
+    if (cap < MIN_HEAD) cap = 0; // too many parts: keep the label only
+    const rest = [first.slice(cap), ...others].join("\n").replace(/^\n/, "");
+    return { head: cap ? `${p.label}\n${first.slice(0, cap)}` : p.label, rest };
   });
   const sep = "\n\n";
   let used = heads.reduce((n, h) => n + h.head.length, 0) + sep.length * Math.max(0, heads.length - 1);

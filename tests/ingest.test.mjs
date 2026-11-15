@@ -132,3 +132,20 @@ test("readModuleFile rejects an all-empty pdf", async () => {
   const pdfjsLib = fakePdfjs([[{ str: " ", hasEOL: false }], []]);
   await assert.rejects(readModuleFile(pdfFile, { pdfjsLib }), { message: NO_TEXT });
 });
+
+test("truncateModule keeps every label with ~150 long single-line parts", () => {
+  const parts = Array.from({ length: 150 }, (_, i) => ({
+    label: `[page ${i + 1}]`,
+    text: `Topic${i + 1} ` + "word ".repeat(1000),
+  }));
+  const out = truncateModule(parts, 25000);
+  assert.ok(out.length <= 25000);
+  for (let i = 1; i <= 150; i++) assert.ok(out.includes(`[page ${i}]\nTopic${i} `), "missing page " + i);
+});
+
+test("truncateModule falls back to labels only when heads cannot fit", () => {
+  const parts = Array.from({ length: 1500 }, (_, i) => ({ label: `[page ${i + 1}]`, text: "word ".repeat(100) }));
+  const out = truncateModule(parts, 25000);
+  assert.ok(out.length <= 25000);
+  for (let i = 1; i <= 1500; i++) assert.ok(out.includes(`[page ${i}]`), "missing page " + i);
+});
