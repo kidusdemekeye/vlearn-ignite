@@ -78,8 +78,8 @@ Prices: Claude Sonnet 5.5 at $2 per million input tokens and $10 per million out
 | 1 | Lesson engine, 2D and 3D views, validator, built-in lessons | Done |
 | 2 | Module upload → narrated video | Done |
 | 3 | AI through our server (Anthropic API, key server-side) | Done ([`api/ai.js`](../api/ai.js)) |
-| 4 | Accounts and sign-in | Next |
-| 5 | Stripe subscriptions and per-plan usage limits on `/api/ai` | Next |
+| 4 | Stripe subscriptions (Checkout, signed plan passes, customer portal) and per-plan AI budgets on `/api/ai` | Done ([`api/billing-core.js`](../api/billing-core.js)) |
+| 5 | Accounts and sign-in (restore a plan on a new device by email) | Next |
 | 6 | Store converted modules; share links for instructors | Next |
 | 7 | Instructor review mode (approve AI lessons) | Planned |
 | 8 | Canvas and D2L plug-ins | Planned |

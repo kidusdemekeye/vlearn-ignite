@@ -65,7 +65,7 @@ Following the AI engineering discipline Mike Vetter presented to the DSU AI Club
 
 The **module → 3D video** feature then went through the full [Superpowers](https://github.com/obra/superpowers) workflow: brainstorm → [design](docs/superpowers/specs/2026-11-15-module-to-3d-design.md) (checked by a fresh "builder" agent) → [7-task plan](docs/superpowers/plans/2026-11-15-module-to-3d.md) → **subagent-driven build**: a fresh agent built each task test-first, a separate agent reviewed it, fixes were re-reviewed → whole-branch review by the most capable model → one fix wave → [summary](docs/04-review-3d.md).
 
-**Results:** 138 automated tests · 15/15 AI lessons valid on the first try · independent accuracy rating 11 correct, 4 minor imprecisions, 0 wrong ([eval report](evals/report.md)).
+**Results:** 162 automated tests · 15/15 AI lessons valid on the first try · independent accuracy rating 11 correct, 4 minor imprecisions, 0 wrong ([eval report](evals/report.md)).
 
 The git history shows each step as its own commit.
 
@@ -83,7 +83,7 @@ The git history shows each step as its own commit.
 ## Run it
 
 ```bash
-npm install && npm test # 138 unit tests (Node 20+; dev deps only for tests)
+npm install && npm test # 162 unit tests (Node 20+; dev deps only for tests)
 cd app && python3 -m http.server 8000
 # open http://localhost:8000 — ready-made lessons work anywhere;
 # AI features turn on when an AI connection is available (see below).
@@ -106,6 +106,37 @@ V Learn talks to AI through one small adapter ([`app/ai.js`](app/ai.js)), so the
 3. Deploy. The page checks `GET /api/ai` and turns on "ask your own question" and follow-ups.
 
 The server route validates every request (roles, size, number of repair rounds), keeps the key in a header the browser never sees, and hides upstream error details. AI output still has to pass the lesson validator before anything is shown.
+
+## Payments (Stripe)
+
+Subscriptions run on Stripe; card details are entered on Stripe's own checkout page and never reach V Learn. There's no database: Stripe is the record of who paid.
+
+```
+Upgrade ─► /api/billing (checkout) ─► Stripe Checkout ─► back to V Learn
+                                                            │
+              /api/billing (pass): server confirms the session with Stripe
+              (complete, paid, active subscription, plan = price charged)
+                                                            │
+                         signed 7-day plan pass ◄───────────┘
+                                   │
+     every AI call: /api/ai checks the pass → that plan's monthly AI budget
+     (no pass or a forged one → Free budget). Weekly: pass re-checked with Stripe.
+```
+
+| Plan | Monthly AI budget (calls) |
+|---|---|
+| Free | 25 (about 1 module + 5 lessons) |
+| Student | 1,500 (fair use) |
+| Instructor | 4,000 |
+
+**Turn it on** (Vercel → Environment Variables, see [`.env.example`](.env.example)):
+
+1. In Stripe, create two recurring Prices: Student $12/month and Instructor $29/month. Copy their ids into `STRIPE_PRICE_STUDENT` and `STRIPE_PRICE_INSTRUCTOR`.
+2. Add `STRIPE_SECRET_KEY` (use a test key `sk_test_…` first), a long random `VLEARN_PASS_SECRET`, and `APP_URL` (your site's address).
+3. Turn on the Customer Portal in Stripe (Settings → Billing → Customer portal) so "Manage billing" works.
+4. For production, add Upstash Redis (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`) so AI budgets are shared across serverless instances.
+
+Test with Stripe's test card `4242 4242 4242 4242`. Code: [`api/billing-core.js`](api/billing-core.js) (tested with a stand-in Stripe in [`tests/billing.test.mjs`](tests/billing.test.mjs)), [`app/billing.js`](app/billing.js).
 
 ## Business
 
