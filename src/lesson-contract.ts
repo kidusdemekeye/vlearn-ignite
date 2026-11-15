@@ -34,7 +34,7 @@ export type DeviceKind = z.infer<typeof DeviceKind>;
 
 export const Protocol = z.enum([
   "DNS", "TCP", "UDP", "IP", "TLS", "HTTP", "QUIC",
-  "ARP", "ICMP", "DHCP", "SSH", "SMTP", "BGP",
+  "ARP", "ICMP", "DHCP", "SSH", "SMTP", "BGP", "802.11",
 ]);
 export type Protocol = z.infer<typeof Protocol>;
 
@@ -111,6 +111,33 @@ export const Lesson = z.object({
   citations: z.array(Citation).min(1),
 });
 export type Lesson = z.infer<typeof Lesson>;
+
+/* ---------- Course (an uploaded class module as an ordered list of items) ---------- */
+
+// Module citation ids: "module_p3" = page 3, "module_s2" = slide 2 of the uploaded module.
+// They are checked against the module's page/slide count and never appear in `citations`.
+export const CourseItem = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("lesson"), topic: z.string().min(1).max(80), question: z.string().min(1).max(300) }),
+  z.object({
+    type: z.literal("card"),
+    title: z.string().min(1).max(80),
+    points: z.array(z.string().min(1).max(90)).min(2).max(5), // fallback cards use fixed, longer text
+    narration: z.string().min(1).max(400),
+    citationIds: z.array(Id), // at least one, unless fallback is true
+    fallback: z.literal(true).optional(),
+  }),
+  z.object({ type: z.literal("osi"), focus: z.enum(["encapsulation", "layers"]), narration: z.string().min(1).max(400).optional() }),
+]);
+export type CourseItem = z.infer<typeof CourseItem>;
+
+export const Course = z.object({
+  version: z.literal(1),
+  title: z.string().min(1).max(80),
+  source: z.string().min(1).max(200), // file name shown to the student
+  items: z.array(CourseItem).min(1).max(12),
+  citations: z.array(Citation), // library entries cited by cards, copied exactly
+});
+export type Course = z.infer<typeof Course>;
 
 /* ---------- Validator ---------- */
 
