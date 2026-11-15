@@ -45,7 +45,32 @@ export function slideOrder(paths) {
     .sort((a, b) => num(a) - num(b));
 }
 
+function mergeLabel(group) {
+  const a = /^\[(page|slide) (\d+)\]$/.exec(group[0].label);
+  const b = /^\[(page|slide) (\d+)\]$/.exec(group[group.length - 1].label);
+  if (!a || !b || group.length === 1) return group[0].label;
+  return `[${a[1]}s ${a[2]}-${b[2]}]`;
+}
+
+function groupParts(parts, size) {
+  const groups = [];
+  for (let i = 0; i < parts.length; i += size) {
+    const g = parts.slice(i, i + size);
+    groups.push({ label: mergeLabel(g), text: g.map((p) => p.text).join("\n") });
+  }
+  return groups;
+}
+
+function labelsFit(parts, max) {
+  return parts.reduce((n, p) => n + p.label.length, 0) + 2 * Math.max(0, parts.length - 1) <= max;
+}
+
 export function truncateModule(parts, max = MAX_MODULE_CHARS) {
+  if (!labelsFit(parts, max)) {
+    let size = 2;
+    while (size < parts.length && !labelsFit(groupParts(parts, size), max)) size++;
+    parts = groupParts(parts, size);
+  }
   const n = parts.length;
   const budget = n ? Math.floor((max - 2 * (n - 1)) / n) : 0;
   const heads = parts.map((p) => {

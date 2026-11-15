@@ -149,3 +149,25 @@ test("truncateModule falls back to labels only when heads cannot fit", () => {
   assert.ok(out.length <= 25000);
   for (let i = 1; i <= 1500; i++) assert.ok(out.includes(`[page ${i}]`), "missing page " + i);
 });
+
+test("truncateModule merges parts into ranges when labels alone cannot fit (n=2500)", () => {
+  const n = 2500;
+  const parts = Array.from({ length: n }, (_, i) => ({ label: `[page ${i + 1}]`, text: `T${i + 1}\n` + "word ".repeat(50) }));
+  const out = truncateModule(parts, 25000);
+  assert.ok(out.length <= 25000);
+  assert.ok(/\[pages? 1[-\]]/.test(out));
+  const covered = new Set();
+  for (const m of out.matchAll(/\[pages? (\d+)(?:-(\d+))?\]/g)) {
+    const a = Number(m[1]), b = Number(m[2] ?? m[1]);
+    for (let k = a; k <= b; k++) covered.add(k);
+  }
+  for (let k = 1; k <= n; k++) assert.ok(covered.has(k), "uncovered page " + k);
+  assert.ok(/-2500\]/.test(out) || out.includes("[page 2500]"));
+});
+
+test("truncateModule merges slide ranges too (n=3000)", () => {
+  const parts = Array.from({ length: 3000 }, (_, i) => ({ label: `[slide ${i + 1}]`, text: "x" }));
+  const out = truncateModule(parts, 25000);
+  assert.ok(out.length <= 25000);
+  assert.ok(/\[slides \d+-3000\]/.test(out));
+});
