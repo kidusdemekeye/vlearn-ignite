@@ -425,12 +425,16 @@ export class Stage3D {
       for (let i = 0; i < list.length; i++) {
         if (token !== this.token) return false;
         const st = list[i];
-        try { onStep?.(i, st); } catch (e) { console.error(e); }
+        // A step lasts max(animation + hold, the promise onStep returns), so spoken narration can finish.
+        let spoken;
+        try { spoken = Promise.resolve(onStep?.(i, st)).then(() => true, (err) => { console.error(err); return true; }); }
+        catch (e) { console.error(e); spoken = Promise.resolve(true); }
         const t0 = performance.now();
         const ok = await osi.go(st, prev, token);
         if (!ok) return false;
         const left = 1600 / this.speed - (performance.now() - t0);
         if (left > 0 && !(await this.#wait(left, token))) return false;
+        if (!(await this.#until(spoken, token))) return false;
         prev = st;
       }
       return token === this.token;
@@ -1102,6 +1106,16 @@ export class Stage3D {
     });
   }
 
+  // Waits for an outside promise, but cancel() resolves the wait with false even if it never settles.
+  #until(promise, token) {
+    if (token !== this.token) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      const done = (v) => { if (!this.waits.delete(done)) return; resolve(v); };
+      this.waits.add(done);
+      promise.then(() => done(token === this.token), () => done(token === this.token));
+    });
+  }
+
   #enterMode(mode) {
     this.#removeMode();
     this.mode = mode;
@@ -1268,7 +1282,8 @@ export class Stage3D {
         for (const tw of active) {
           if (tw.token !== this.token) { tw.resolve(false); continue; }
           const t = clamp((now - tw.start) / tw.ms, 0, 1);
-          tw.fn(t);
+          try { tw.fn(t); }
+          catch (err) { console.error("Stage3D tween error", err); tw.resolve(false); continue; }
           if (t >= 1) tw.resolve(true); else this.tweens.push(tw);
         }
       }
