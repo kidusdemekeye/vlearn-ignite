@@ -3,6 +3,7 @@
 
 export const MAX_MODULE_CHARS = 25000;
 const CHUNK_CHARS = 3000;
+const HEAD_MAX = 200;
 const ERR_EMPTY = "This file has no readable text (it may be scanned images).";
 const ERR_TYPE = "Please upload a PDF, PowerPoint (.pptx), Word (.docx) or text file.";
 
@@ -45,8 +46,10 @@ export function slideOrder(paths) {
 
 export function truncateModule(parts, max = MAX_MODULE_CHARS) {
   const heads = parts.map((p) => {
-    const [first, ...rest] = String(p.text).split("\n");
-    return { head: `${p.label}\n${first}`, rest: rest.join("\n") };
+    const [first, ...others] = String(p.text).split("\n");
+    const head = first.slice(0, HEAD_MAX);
+    const rest = [first.slice(HEAD_MAX), ...others].join("\n").replace(/^\n/, "");
+    return { head: `${p.label}\n${head}`, rest };
   });
   const sep = "\n\n";
   let used = heads.reduce((n, h) => n + h.head.length, 0) + sep.length * Math.max(0, heads.length - 1);
@@ -110,7 +113,9 @@ async function extractPdf(buffer, pdfjsLib) {
   for (let n = 1; n <= pdf.numPages; n++) {
     const page = await pdf.getPage(n);
     const content = await page.getTextContent();
-    parts.push({ label: `[page ${n}]`, text: content.items.map((it) => it.str).join(" ").replace(/\s+/g, " ").trim() });
+    const raw = content.items.map((it) => it.str + (it.hasEOL ? "\n" : " ")).join("");
+    const text = raw.replace(/[ \t]+/g, " ").replace(/ ?\n[ \n]*/g, "\n").trim();
+    parts.push({ label: `[page ${n}]`, text });
   }
   const r = finish(parts, pdf.numPages, 0);
   return r;

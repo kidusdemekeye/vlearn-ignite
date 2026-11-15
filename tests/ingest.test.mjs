@@ -93,3 +93,42 @@ test("readModuleFile reads pptx, txt and rejects bad input", async () => {
   await assert.rejects(readModuleFile({ name: "e.txt", text: async () => "  \n " }), { message: NO_TEXT });
   await assert.rejects(readModuleFile({ name: "x.exe", text: async () => "x" }), { message: BAD_TYPE });
 });
+
+test("truncateModule caps heads so many long single-line parts all survive", () => {
+  const parts = Array.from({ length: 60 }, (_, i) => ({
+    label: `[page ${i + 1}]`,
+    text: `Topic${i + 1} ` + "word ".repeat(1000),
+  }));
+  const out = truncateModule(parts, 25000);
+  assert.ok(out.length <= 25000);
+  for (let i = 1; i <= 60; i++) assert.ok(out.includes(`[page ${i}]\nTopic${i} `), "missing page " + i);
+});
+
+function fakePdfjs(pages) {
+  return {
+    getDocument: () => ({
+      promise: Promise.resolve({
+        numPages: pages.length,
+        getPage: async (n) => ({ getTextContent: async () => ({ items: pages[n - 1] }) }),
+      }),
+    }),
+  };
+}
+const pdfFile = { name: "Lec 1.pdf", arrayBuffer: async () => new ArrayBuffer(8) };
+
+test("readModuleFile reads pdf pages with markers and line breaks", async () => {
+  const pdfjsLib = fakePdfjs([
+    [{ str: "Intro", hasEOL: true }, { str: "TCP", hasEOL: false }, { str: "handshake", hasEOL: true }],
+    [{ str: "Page two", hasEOL: false }],
+  ]);
+  const r = await readModuleFile(pdfFile, { pdfjsLib });
+  assert.equal(r.title, "Lec 1");
+  assert.equal(r.pages, 2);
+  assert.equal(r.slides, 0);
+  assert.equal(r.text, "[page 1]\nIntro\nTCP handshake\n\n[page 2]\nPage two");
+});
+
+test("readModuleFile rejects an all-empty pdf", async () => {
+  const pdfjsLib = fakePdfjs([[{ str: " ", hasEOL: false }], []]);
+  await assert.rejects(readModuleFile(pdfFile, { pdfjsLib }), { message: NO_TEXT });
+});
