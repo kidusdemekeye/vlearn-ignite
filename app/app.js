@@ -14,7 +14,7 @@ const make = (tag, props = {}, text) => {
   return n;
 };
 
-const state = { lesson: null, i: 0, playing: false, run: 0, voice: true };
+const state = { lesson: null, i: 0, playing: false, run: 0, voice: true, gen: 0, ask: 0, abort: null };
 const stage = new Stage($("#stage"), { onPacketClick: () => $("#step-card").focus() });
 
 let sample = null, tts = null, dictation = null;
@@ -90,6 +90,8 @@ function renderLesson(lesson, badge) {
     all.append(li);
   }
   $("#followup-answer").hidden = true;
+  $("#followup-label").hidden = true;
+  state.ask++;
   showStep(0);
   stage.play(lesson.steps[0], { instant: true });
   setPlaying(false);
@@ -135,6 +137,17 @@ function showStep(i) {
   $("#next").disabled = i === lesson.steps.length - 1;
 }
 
+// On narrow screens the stage scrolls sideways; keep the action in view.
+function followOnPhone(step) {
+  const box = $(".stage-scroll");
+  if (!box || box.scrollWidth <= box.clientWidth + 4) return;
+  const a = step.action;
+  const id = a.type === "highlight" ? a.device : a.path[a.path.length - 1];
+  const vb = $("#stage").viewBox.baseVal;
+  const x = (stage.pos[id].x / vb.width) * box.scrollWidth;
+  box.scrollTo({ left: x - box.clientWidth / 2, behavior: "smooth" });
+}
+
 // ---------- Playback ----------
 function setPlaying(on) {
   state.playing = on;
@@ -149,7 +162,10 @@ async function runFrom(i) {
   for (let k = i; k < state.lesson.steps.length; k++) {
     showStep(k);
     const step = state.lesson.steps[k];
-    await Promise.all([stage.play(step), speak(step.narration)]);
+    followOnPhone(step);
+    // Without a voice, hold each step long enough to read the narration.
+    const hold = state.voice ? 0 : Math.min(9000, Math.max(2500, step.narration.length * 55)) / stage.speed;
+    await Promise.all([stage.play(step), speak(step.narration), new Promise((r) => setTimeout(r, hold))]);
     if (run !== state.run || !state.playing) return;
     await new Promise((r) => setTimeout(r, 350 / stage.speed));
     if (run !== state.run || !state.playing) return;
@@ -178,6 +194,7 @@ function goTo(i, animate) {
   i = Math.max(0, Math.min(state.lesson.steps.length - 1, i));
   showStep(i);
   if (wasPlaying) { setPlaying(true); runFrom(i); return; }
+  followOnPhone(state.lesson.steps[i]);
   if (animate) {
     stage.play(state.lesson.steps[i]);
     speak(state.lesson.steps[i].narration);
@@ -198,13 +215,18 @@ async function generateLesson(question) {
   if (!sample) return setStatus("Custom questions need Claude. Open this page in Claude while signed in, or pick a ready-made lesson below.", "error");
 
   pause();
-  const btn = $("#ask-btn");
-  btn.disabled = true;
+  const gen = ++state.gen;
+  state.abort?.abort();
+  const controller = new AbortController();
+  state.abort = controller;
+  const stale = () => gen !== state.gen;
+  setBusy(true);
   setStatus("Planning your lesson…");
   const messages = [{ role: "user", content: buildLessonPrompt(q, GOLDEN_LESSONS[0]) }];
   try {
     for (let attempt = 0; attempt <= MAX_REPAIRS; attempt++) {
-      const reply = await sample(messages, { modelTier: "default", cache: false });
+      const reply = await sample(messages, { modelTier: "default", cache: false, signal: controller.signal });
+      if (stale()) return;
       const parsed = parseLessonReply(reply.text);
       if (parsed.kind === "error") return setStatus(parsed.message, "error");
       let errors;
@@ -213,7 +235,7 @@ async function generateLesson(question) {
         parsed.lesson.question = q;
         const result = validateLesson(parsed.lesson);
         if (result.ok) {
-          renderLesson(result.lesson, { text: attempt ? `AI-built · fixed ${attempt}×, passed validation` : "AI-built · passed validation", kind: "ai" });
+          renderLesson(result.lesson, { text: "AI-built · structure checked, not hand-verified", kind: "ai" });
           setStatus("");
           $("#lesson").scrollIntoView({ behavior: "smooth", block: "start" });
           return;
@@ -226,13 +248,19 @@ async function generateLesson(question) {
     }
     setStatus("I couldn't build a lesson for that one that passed every accuracy check, so I won't show a shaky version. Try rephrasing, or pick a ready-made lesson.", "error");
   } catch (e) {
+    if (stale() || e?.name === "AbortError" || e?.code === "aborted") return;
     const msg = e?.code === "rate_limited" ? "Claude is busy right now. Wait a moment and try again."
       : e?.code === "not_granted" ? "Custom questions need permission to use Claude. Allow it from the page's permissions, or pick a ready-made lesson."
       : "Something went wrong while building the lesson. Try again.";
     setStatus(msg, "error");
   } finally {
-    btn.disabled = false;
+    if (!stale()) setBusy(false);
   }
+}
+
+function setBusy(on) {
+  $("#ask-btn").disabled = on;
+  for (const b of document.querySelectorAll(".suggest")) b.disabled = on;
 }
 
 // ---------- Follow-ups ----------
@@ -242,16 +270,21 @@ async function askFollowUp(question) {
   try { q = sanitizeQuestion(question); } catch (e) { out.hidden = false; out.textContent = e.message; return; }
   if (!sample) { out.hidden = false; out.textContent = "Follow-up questions need Claude. Open this page in Claude while signed in."; return; }
   pause();
+  const ask = ++state.ask;
+  const lesson = state.lesson;
+  const live = () => ask === state.ask && lesson === state.lesson;
   const btn = $("#followup-btn");
   btn.disabled = true;
   out.hidden = false;
   out.textContent = "Thinking…";
   try {
-    const r = await sample(buildFollowUpPrompt(state.lesson, state.i, q), {
+    const r = await sample(buildFollowUpPrompt(lesson, state.i, q), {
       modelTier: "quick", cache: false,
-      onText: ({ text }) => { out.textContent = text; },
+      onText: ({ text }) => { if (live()) out.textContent = text; },
     });
+    if (!live()) return;
     out.textContent = r.text.trim();
+    $("#followup-label").hidden = false;
     speak(out.textContent);
   } catch (e) {
     out.textContent = e?.code === "rate_limited" ? "Claude is busy right now. Try again in a moment." : "I couldn't get an answer. Try again.";
@@ -265,7 +298,7 @@ let micTarget = null;
 function wireMic(button, input) {
   button.addEventListener("click", () => {
     if (!dictation) return;
-    if (micTarget === input) { dictation.stop().catch(() => {}); return; }
+    if (micTarget) { dictation.stop().catch(() => {}); return; }
     micTarget = input;
     dictation.start().catch((e) => {
       micTarget = null;

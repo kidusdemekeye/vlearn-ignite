@@ -16,12 +16,13 @@
   --accent: #0a6c86;
   --accent-ink: #ffffff;
   --warn: #c0352b;
-  --p-dns: #b86a00; --p-tcp: #2459c4; --p-udp: #4b6fa8; --p-ip: #3f5b73; --p-tls: #7440bf;
+  --p-dns: #9a5800; --p-tcp: #2459c4; --p-udp: #4b6fa8; --p-ip: #3f5b73; --p-tls: #7440bf;
   --p-http: #16804d; --p-quic: #8a4bb0; --p-arp: #b23d6b; --p-icmp: #0b8585; --p-dhcp: #7d6a00;
   --p-ssh: #5a5a5a; --p-smtp: #a1501f; --p-bgp: #6b4f2a; --p-note: #566778;
   --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --on-p: #ffffff;
   --r: 14px;
 }
 @media (prefers-color-scheme: dark) {
@@ -31,6 +32,7 @@
     --p-dns: #f0a33c; --p-tcp: #6f9bff; --p-udp: #8fb0e3; --p-ip: #9fb6c9; --p-tls: #b48cf2;
     --p-http: #4fcf8a; --p-quic: #c48ce6; --p-arp: #f07ba8; --p-icmp: #3fd0cc; --p-dhcp: #d9c24a;
     --p-ssh: #b8b8b8; --p-smtp: #ee9a64; --p-bgp: #c9a571; --p-note: #93a4b4;
+    --on-p: #071019;
     color-scheme: dark;
   }
 }
@@ -40,6 +42,7 @@
   --p-dns: #f0a33c; --p-tcp: #6f9bff; --p-udp: #8fb0e3; --p-ip: #9fb6c9; --p-tls: #b48cf2;
   --p-http: #4fcf8a; --p-quic: #c48ce6; --p-arp: #f07ba8; --p-icmp: #3fd0cc; --p-dhcp: #d9c24a;
   --p-ssh: #b8b8b8; --p-smtp: #ee9a64; --p-bgp: #c9a571; --p-note: #93a4b4;
+  --on-p: #071019;
   color-scheme: dark;
 }
 
@@ -74,7 +77,7 @@ button, select, input { font: inherit; color: inherit; }
 .askbar { display: flex; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px; max-width: 760px; }
 .askbar input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 10px 14px; outline: none; font-size: 16px; }
 .askbar:focus-within { border-color: var(--accent); }
-.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.btn { min-height: 44px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .btn:hover { border-color: var(--accent); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
@@ -86,7 +89,7 @@ button, select, input { font: inherit; color: inherit; }
 .suggest:hover { color: var(--ink); border-color: var(--accent); }
 .chip { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 7px 12px; cursor: pointer; font-size: 14px; }
 .chip[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-body[data-ai="off"] .ai-only { display: none; }
+body:not([data-ai="on"]) .ai-only { display: none; }
 .ai-note { display: none; font-size: 13px; color: var(--muted); }
 body[data-ai="off"] .ai-note { display: block; }
 .status { font-size: 14px; padding: 8px 12px; border-radius: 10px; background: var(--sunk); max-width: 760px; }
@@ -122,7 +125,7 @@ body[data-ai="off"] .ai-note { display: block; }
 .node-kind { font: 500 10px var(--mono); letter-spacing: 0.08em; fill: var(--muted); }
 .packet { cursor: pointer; }
 .packet-body { fill: var(--pc); }
-.packet-text { font: 500 13px var(--mono); fill: #fff; }
+.packet-text { font: 500 13px var(--mono); fill: var(--on-p); }
 .packet.blocked .packet-body { fill: var(--warn); }
 .packet-inner.shake { animation: shake 0.45s; }
 @keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
@@ -130,7 +133,7 @@ body[data-ai="off"] .ai-note { display: block; }
 .caption rect { fill: var(--ink); }
 .caption text { font: 500 13px var(--body); fill: var(--bg); }
 .caption.warn rect { fill: var(--warn); }
-.caption.warn text { fill: #fff; }
+.caption.warn text { fill: var(--on-p); }
 
 .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px; border-top: 1px solid var(--line); }
 .controls .spacer { flex: 1; }
@@ -143,7 +146,7 @@ body[data-ai="off"] .ai-note { display: block; }
 .step { padding: 18px; display: grid; gap: 10px; outline: none; }
 .step-top { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
 .count { font: 500 12px var(--mono); color: var(--muted); letter-spacing: 0.04em; }
-.proto { font: 600 11px var(--mono); letter-spacing: 0.06em; color: #fff; background: var(--pc, var(--muted)); padding: 3px 8px; border-radius: 6px; }
+.proto { font: 600 11px var(--mono); letter-spacing: 0.06em; color: var(--on-p); background: var(--pc, var(--muted)); padding: 3px 8px; border-radius: 6px; }
 .path { font: 500 13px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
 .narration { font: 500 19px/1.45 var(--body); margin: 0; min-height: 4.4em; }
 .fields { margin: 0; display: grid; gap: 4px; background: var(--sunk); border-radius: 10px; padding: 10px 12px; font: 13px var(--mono); }
@@ -158,6 +161,7 @@ body[data-ai="off"] .ai-note { display: block; }
 .followup h3 { margin: 0; font: 700 16px var(--display); }
 .followup form { display: flex; gap: 8px; }
 .followup input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 12px; }
+.fine { margin: 0; font-size: 12px; color: var(--muted); }
 .answer { margin: 0; background: var(--sunk); border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; }
 
 .lower { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -257,10 +261,10 @@ footer { font-size: 13px; color: var(--muted); }
       </div>
 
       <div class="side">
-        <article class="panel step" id="step-card" tabindex="-1" aria-live="polite">
+        <article class="panel step" id="step-card" tabindex="-1">
           <div class="step-top"><span class="count" id="step-count"></span><span class="proto" id="step-proto"></span></div>
           <div class="path" id="step-path"></div>
-          <p class="narration" id="step-narration"></p>
+          <p class="narration" id="step-narration" aria-live="polite"></p>
           <dl class="fields" id="step-fields" hidden></dl>
           <div class="cites"><span class="label">Source</span><span id="step-sources" class="cites"></span></div>
         </article>
@@ -276,6 +280,7 @@ footer { font-size: 13px; color: var(--muted); }
           </form>
           <p class="ai-note">Follow-up questions need Claude. Open this page in Claude while signed in.</p>
           <p class="answer" id="followup-answer" aria-live="polite" hidden></p>
+          <p class="fine" id="followup-label" hidden>AI tutor answer, not cited. Check it against the step's sources.</p>
         </section>
       </div>
     </div>
@@ -299,9 +304,10 @@ footer { font-size: 13px; color: var(--muted); }
           <strong>How V Learn stays accurate</strong>
           <ol>
             <li>Claude writes a lesson script. It never draws anything itself.</li>
-            <li>A validator checks every device, cable and step. Packets can't jump between devices that aren't connected.</li>
+            <li>A validator checks the structure of every lesson: real devices, packets only travel along real cables, every step cited.</li>
             <li>Sources must come from a vetted list of RFCs and NIST guidance.</li>
             <li>Anything that fails goes back to Claude to fix. If it still fails, you don't see it.</li>
+            <li>Ready-made lessons are hand-checked. AI lessons are labelled as structure-checked, so you always know which is which.</li>
           </ol>
         </section>
       </div>

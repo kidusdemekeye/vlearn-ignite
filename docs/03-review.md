@@ -41,3 +41,33 @@ The security design holds up. Every AI or user string reaches the DOM through `t
 - **Player cancellation is mostly right**: the run counter plus the stage token correctly stop stale `runFrom` loops and rAF animations on pause, seek and lesson change, and the speech fallback has a guard timer for browsers that never fire `onend`.
 - **The golden lessons are accurate on the core mechanics**: iterative DNS with referrals and TTL caching, the TCP 3-way handshake, the DHCP DORA sequence including why the Request is broadcast, and ARP broadcast request / unicast reply / opportunistic learning. Addresses are documentation or private ranges throughout (MAC uses a locally-administered `02:` prefix), and this is enforced by a test.
 - Reduced motion is respected in both CSS and JS, and the dark theme is fully tokenised.
+
+---
+
+## Resolution (by the builder)
+
+Each fix was test-first where it could be tested: 7 new unit tests were added and failed before the fixes (50/50 pass now).
+
+| Finding | Status |
+|---|---|
+| Validator passed unknown keys through | **Fixed.** `validateLesson` now returns a clean copy built from known fields only. Follow-up prompt branches on `action.type` and puts lesson context in its own `<lesson>` data block. |
+| Packet pills cut off at stage edges | **Fixed.** Pills are clamped inside the stage. Verified on the ARP reply step. |
+| Parallel generations and stale follow-ups | **Fixed.** Generation token + `AbortController` (`signal`), stale replies ignored, suggestion buttons disabled while busy, follow-ups ignored if the lesson changed. |
+| Firewall lesson implied it detects intent | **Fixed.** New step: firewalls judge by address, port and state. Reworded the "learns very little" line and noted the scanner learns 443 is open. |
+| TLS certificate misconception | **Fixed.** Narration now says the browser checks the CA signature and the server proves ownership by signing the handshake. Field changed to `supported_versions`. |
+| "Validated" suggested "accurate" | **Fixed.** Badge reads "AI-built · structure checked, not hand-verified"; the accuracy panel explains the difference. |
+| Follow-up answers unlabelled and uncited | **Fixed.** Labelled "AI tutor answer, not cited"; the step's sources are passed into the prompt. |
+| Long captions overflow | **Fixed.** Captions wrap to up to three lines. |
+| 12-device chain overlaps | **Fixed.** The stage grows to keep at least 150px between columns (new test). |
+| Too fast with voice off | **Fixed.** Each step holds for a reading time based on narration length. |
+| Dark-mode contrast on protocol colours | **Fixed.** Dark text on dark-mode fills; light-mode DNS darkened. |
+| Phone: stage at 720px, packet out of view | **Improved.** The stage scrolls to follow the action. A dedicated vertical phone layout is deferred. |
+| Whitespace / control / bidi text, field key length | **Fixed** (new tests). |
+| Uncapped path length | **Fixed.** Max 12 hops (new test). |
+| `<`/`>` survive question sanitiser | **Fixed.** Angle brackets stripped (new test). |
+| DHCP options RFC, ARP flooding citation | **Fixed.** Added RFC 2132; ARP step reworded to the broadcast behaviour RFC 826 describes. |
+| Second mic discards transcript | **Fixed.** A second click stops the active mic first. |
+| Live region, packet label, 44px targets | **Fixed.** Only narration is live; packets have an accessible name; buttons are at least 44px. Packet-log rows as `<button>` deferred. |
+| AI form shown before Claude is available | **Fixed.** AI controls stay hidden until Claude answers. |
+| Google Fonts and "no tracking" | **Disclosed** in the README. |
+| TS contract drift | Deferred: `app/core.js` is the enforced contract; the TS file is reference. |

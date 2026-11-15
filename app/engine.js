@@ -98,9 +98,21 @@ export class Stage {
 
   #caption(x, y, text, cls) {
     const g = el("g", { class: "caption " + (cls || ""), transform: `translate(${x} ${y})` }, this.fxLayer);
-    const rect = el("rect", { y: -15, height: 30, rx: 8 }, g);
-    const t = txt(g, { "text-anchor": "middle", y: 5 }, text);
-    const w = Math.min(560, Math.max(80, (t.getComputedTextLength?.() || text.length * 7.4) + 24));
+    // wrap to at most 3 lines of ~52 characters
+    const lines = [];
+    let cur = "";
+    for (const word of text.split(" ")) {
+      if ((cur + " " + word).trim().length > 52 && cur) { lines.push(cur); cur = word; } else cur = (cur + " " + word).trim();
+    }
+    if (cur) lines.push(cur);
+    const h = 12 + lines.length * 18;
+    const rect = el("rect", { y: -h / 2, height: h, rx: 8 }, g);
+    let maxLen = 0;
+    lines.slice(0, 3).forEach((line, i) => {
+      const t = txt(g, { "text-anchor": "middle", y: -h / 2 + 22 + i * 18 }, line);
+      maxLen = Math.max(maxLen, t.getComputedTextLength?.() || line.length * 7.4);
+    });
+    const w = Math.max(80, maxLen + 24);
     rect.setAttribute("x", -w / 2);
     rect.setAttribute("width", w);
     // keep inside the stage
@@ -127,7 +139,7 @@ export class Stage {
       line.classList.add("active");
       line.setAttribute("data-proto", a.packet.protocol);
     }
-    const pkt = el("g", { class: "packet", "data-proto": a.packet.protocol, tabindex: 0, role: "button" }, this.fxLayer);
+    const pkt = el("g", { class: "packet", "data-proto": a.packet.protocol, tabindex: 0, role: "button", "aria-label": `${a.packet.protocol} packet: ${a.packet.label}. Show details` }, this.fxLayer);
     const inner = el("g", { class: "packet-inner" }, pkt);
     const body = el("rect", { y: -14, height: 28, rx: 14, class: "packet-body" }, inner);
     const tag = txt(inner, { x: 0, y: 5, "text-anchor": "middle", class: "packet-text" }, `${a.packet.protocol} · ${a.packet.label}`);
@@ -137,7 +149,12 @@ export class Stage {
     pkt.addEventListener("click", () => this.onPacketClick?.(a.packet));
     pkt.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") this.onPacketClick?.(a.packet); });
 
-    const place = (x, y) => pkt.setAttribute("transform", `translate(${x} ${y - 4})`);
+    const vbw = this.svg.viewBox.baseVal.width;
+    // keep the whole pill inside the stage
+    const place = (x, y) => {
+      const cx = Math.min(Math.max(x, w / 2 + 6), vbw - w / 2 - 6);
+      pkt.setAttribute("transform", `translate(${cx} ${y - 4})`);
+    };
     const segs = pts.length - 1;
     const end = () => {
       const last = pts[pts.length - 1];

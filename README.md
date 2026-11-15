@@ -71,12 +71,12 @@ The git history shows each step as its own commit.
 | AI output used as code | Treated as untrusted data, validated, rendered with `textContent` only. |
 | Prompt injection | The question is passed as delimited data and capped at 300 characters. Whatever comes back must still pass the validator. |
 | Fake sources | Citations must exactly match the vetted library. |
-| Privacy | Nothing is stored. No accounts, no tracking. |
+| Privacy | Nothing is stored. No accounts, no tracking. Fonts load from Google Fonts. |
 
 ## Run it
 
 ```bash
-npm test                 # 43 unit tests, no dependencies (Node 20+)
+npm test                 # 50 unit tests, no dependencies (Node 20+)
 cd app && python3 -m http.server 8000
 # open http://localhost:8000 — ready-made lessons work anywhere;
 # "ask your own question" needs the Claude-hosted version (live link above).

@@ -105,14 +105,14 @@ const websiteLesson = {
     },
     {
       id: "tls",
-      action: { type: "send", path: ["laptop", "router", "web"], packet: { protocol: "TLS", label: "ClientHello", fields: { version: "TLS 1.3" } } },
+      action: { type: "send", path: ["laptop", "router", "web"], packet: { protocol: "TLS", label: "ClientHello", fields: { supported_versions: "TLS 1.3" } } },
       narration: "Because the site uses HTTPS, your laptop starts a TLS handshake. The two sides agree on keys, so nobody in between can read the traffic.",
       citationIds: ["rfc8446"],
     },
     {
       id: "tls_reply",
       action: { type: "send", path: ["web", "router", "laptop"], packet: { protocol: "TLS", label: "ServerHello + certificate" } },
-      narration: "The server replies with its certificate, which proves it really is example.com, and its share of the key exchange.",
+      narration: "The server answers with its share of the key exchange, then its certificate. Your browser checks it was signed by an authority it trusts, and the server proves it owns it by signing the handshake.",
       citationIds: ["rfc8446"],
     },
     {
@@ -134,7 +134,7 @@ const websiteLesson = {
 const firewallLesson = {
   version: 1,
   title: "How a firewall stops a port scan",
-  question: "How does a firewall block an attacker but still let website visitors in?",
+  question: "How does a firewall block a port scan but still let website visitors in?",
   devices: [
     { id: "scanner", kind: "laptop", label: "Scanner on the internet" },
     { id: "internet", kind: "internet", label: "Internet" },
@@ -162,13 +162,19 @@ const firewallLesson = {
     {
       id: "probe_rdp",
       action: { type: "drop", path: ["scanner", "internet", "firewall"], packet: { protocol: "TCP", label: "SYN to port 3389", fields: { "dst port": "3389 (Remote Desktop)" } }, reason: "Port 3389 is not allowed either" },
-      narration: "It tries port 3389, used for Remote Desktop. Dropped again. The scanner gets no answer, so it learns very little.",
+      narration: "It tries port 3389, used for Remote Desktop. Dropped again. Getting no answer at all tells the scanner these ports are filtered, but nothing about what is behind them.",
       citationIds: ["nist_sp800_41r1"],
     },
     {
       id: "log",
       action: { type: "highlight", device: "firewall", caption: "Logs the blocked attempts" },
       narration: "The firewall records the blocked attempts, so security staff can spot someone probing the network.",
+      citationIds: ["nist_sp800_41r1"],
+    },
+    {
+      id: "rules_not_intent",
+      action: { type: "highlight", device: "firewall", caption: "Judges port, address and state, not intent" },
+      narration: "A firewall can't read minds. It decides by address, port and connection state, so if the scanner tries port 443, the allow rule applies to it like anyone else.",
       citationIds: ["nist_sp800_41r1"],
     },
     {
@@ -186,7 +192,7 @@ const firewallLesson = {
     {
       id: "syn_ack",
       action: { type: "send", path: ["web", "firewall", "internet", "scanner"], packet: { protocol: "TCP", label: "SYN-ACK" } },
-      narration: "The server answers with a SYN-ACK. The firewall lets it out because it belongs to a connection it already allowed.",
+      narration: "The server answers with a SYN-ACK. The firewall lets it out because it belongs to a connection it already allowed. The scanner now knows port 443 is open, which is why the web server itself must be kept patched.",
       citationIds: ["rfc9293", "nist_sp800_41r1"],
     },
   ],
@@ -235,7 +241,7 @@ const dhcpLesson = {
       id: "ack",
       action: { type: "send", path: ["router", "ap", "laptop"], packet: { protocol: "DHCP", label: "ACK", fields: { address: "192.168.1.23", router: "192.168.1.1", dns: "192.168.1.1" } } },
       narration: "The server confirms with an Ack. It also tells your laptop which router to use as its gateway and which DNS server to ask.",
-      citationIds: ["rfc2131"],
+      citationIds: ["rfc2131", "rfc2132"],
     },
     {
       id: "configured",
@@ -244,7 +250,7 @@ const dhcpLesson = {
       citationIds: ["rfc2131"],
     },
   ],
-  citations: cite("rfc2131", "rfc1918"),
+  citations: cite("rfc2131", "rfc2132", "rfc1918"),
 };
 
 const arpLesson = {
@@ -278,7 +284,7 @@ const arpLesson = {
     {
       id: "request_printer",
       action: { type: "send", path: ["switch", "printer"], packet: { protocol: "ARP", label: "Who has 192.168.1.1?" } },
-      narration: "Because it's a broadcast, the switch sends a copy out to every other device too, including the printer.",
+      narration: "Because it's a broadcast, every device on the local network receives a copy, including the printer.",
       citationIds: ["rfc826"],
     },
     {
