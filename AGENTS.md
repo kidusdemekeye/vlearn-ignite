@@ -25,3 +25,5 @@ Add a line here whenever something went wrong or took longer than it should, so 
 - Any narration/animation `await` needs both a timeout and a minimum hold, or the player stalls or rushes.
 - `renderer.setSize(w, h, true)` fixes the canvas pixel size and fights CSS aspect-ratio; use `false` with an absolutely positioned canvas.
 - Hand-written teaching content needs a domain-expert review pass: reviews caught "Wi-Fi uses the same frames as Ethernet".
+- Budget AI by cost (tokens × price), never by call count: one call can cost 100× another.
+- Bind signed passes to Stripe test/live mode and use separate secrets per environment.

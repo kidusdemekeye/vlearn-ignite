@@ -34,21 +34,28 @@ async function api(body, fetchFn = fetch) {
 // Only follow redirects to Stripe (always https) or back to this site.
 function safeUrl(u) {
   if (typeof u !== "string") return false;
-  try { const x = new URL(u, location.href); return x.protocol === "https:" || x.origin === location.origin; } catch { return false; }
+  try {
+    const x = new URL(u, location.href);
+    return x.origin === location.origin || (x.protocol === "https:" && /^(checkout|billing)\.stripe\.com$/.test(x.hostname));
+  } catch { return false; }
 }
 
 const PLAN_NAMES = { free: "Free", student: "Student", instructor: "Instructor" };
 const $ = (s) => document.querySelector(s);
+
+const activePlan = () => { const p = readPass(); return p && p.exp > Date.now() ? p.plan : "free"; };
 
 function showPlan(plan) {
   const line = $("#billing-plan");
   if (line) line.textContent = `Your plan: ${PLAN_NAMES[plan] || "Free"}`;
   const manage = $("#manage-billing");
   if (manage) manage.hidden = plan === "free" || !plan;
+  const paid = plan === "student" || plan === "instructor";
   for (const b of document.querySelectorAll(".plan-cta[data-plan]")) {
     const current = b.dataset.plan === plan;
     b.disabled = current || b.dataset.enabled !== "true";
-    b.textContent = current ? "Current plan" : b.dataset.label;
+    // Paying customers switch plans in Stripe's portal, so they never end up with two subscriptions.
+    b.textContent = current ? "Current plan" : paid ? "Switch plan" : b.dataset.label;
   }
 }
 
@@ -68,6 +75,11 @@ export async function initBilling() {
   try { status = await api(); } catch { status = null; }
   const enabled = Boolean(status?.ok && status.data?.enabled);
   for (const b of ctas) b.dataset.enabled = String(enabled);
+  const restore = $("#restore-purchase");
+  if (restore && status?.data?.portalLoginUrl && safeUrl(status.data.portalLoginUrl)) {
+    restore.href = status.data.portalLoginUrl;
+    restore.hidden = false;
+  }
   if (!enabled) {
     for (const b of ctas) b.disabled = true;
     const note = $("#billing-off");
@@ -78,6 +90,7 @@ export async function initBilling() {
   // Back from Stripe Checkout?
   const params = new URLSearchParams(location.search);
   const sessionId = params.get("session_id");
+  let confirmed = true;
   if (params.get("checkout") === "success" && sessionId) {
     say("Confirming your payment…");
     const r = await api({ action: "pass", session_id: sessionId }).catch(() => null);
@@ -85,30 +98,33 @@ export async function initBilling() {
       savePass(r.data.pass);
       say(`You're on the ${PLAN_NAMES[r.data.plan]} plan. Thank you!`, "ok");
     } else {
-      say(r?.data?.error || "We couldn't confirm the payment yet. Refresh in a moment.", "error");
+      // Keep the link in the address bar so refreshing the page can try again.
+      confirmed = false;
+      say(r?.data?.error || "We couldn't confirm the payment yet. Refresh this page in a moment.", "error");
     }
   } else if (params.get("checkout") === "cancelled") {
     say("Checkout cancelled. You're still on your current plan.");
   }
-  if (params.has("checkout")) {
+  if (params.has("checkout") && confirmed) {
     try { history.replaceState(null, "", location.pathname + location.hash); } catch { /* ignore */ }
   }
 
   // Re-check an existing pass with Stripe when it's close to expiring.
-  let p = readPass();
+  const p = readPass();
   if (p && p.exp - Date.now() < DAY) {
     const r = await api({ action: "refresh", pass: getPass() }).catch(() => null);
     if (r?.ok && r.data?.pass) savePass(r.data.pass);
     else if (r && (r.status === 401 || r.status === 402)) { savePass(null); say(r.data?.error || "You're on the Free plan."); }
-    p = readPass();
   }
-  showPlan(p?.plan || "free");
+  showPlan(activePlan());
 
   for (const b of ctas) {
     b.addEventListener("click", async () => {
       b.disabled = true;
+      const current = activePlan();
+      if (current !== "free") { b.disabled = false; return openPortal(); }
       say("Opening secure checkout…");
-      const r = await api({ action: "checkout", plan: b.dataset.plan }).catch(() => null);
+      const r = await api({ action: "checkout", plan: b.dataset.plan, pass: getPass() }).catch(() => null);
       if (r?.ok && safeUrl(r.data?.url)) {
         location.assign(r.data.url);
       } else {
@@ -118,9 +134,12 @@ export async function initBilling() {
     });
   }
 
-  $("#manage-billing")?.addEventListener("click", async () => {
-    const r = await api({ action: "portal", pass: getPass() }).catch(() => null);
-    if (r?.ok && safeUrl(r.data?.url)) location.assign(r.data.url);
-    else say(r?.data?.error || "Couldn't open billing. Try again.", "error");
-  });
+  $("#manage-billing")?.addEventListener("click", openPortal);
+}
+
+async function openPortal() {
+  say("Opening billing…");
+  const r = await api({ action: "portal", pass: getPass() }).catch(() => null);
+  if (r?.ok && safeUrl(r.data?.url)) location.assign(r.data.url);
+  else say(r?.data?.error || "Couldn't open billing. Try again.", "error");
 }

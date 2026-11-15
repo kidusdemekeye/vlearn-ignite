@@ -18,7 +18,7 @@
 | Plan | Price | What's included |
 |---|---|---|
 | **Free** | $0 | All built-in lessons, 5 AI lessons a month, 1 module upload a month |
-| **Student** | $12 a month, or $99 a year | Unlimited AI lessons (fair use), 20 module uploads a month, voice follow-ups, saved library |
+| **Student** | $12 a month | Unlimited AI lessons (fair use), 20 module uploads a month, voice follow-ups, saved library |
 | **Instructor** | $29 a month | Everything in Student, share module videos with a class, review and approve AI lessons, up to 60 students |
 | **Schools & teams** | $8 per student per term | Everything in Instructor, LMS integration (Canvas, D2L), admin dashboard, volume pricing from 200 seats |
 
@@ -79,7 +79,7 @@ Prices: Claude Sonnet 5.5 at $2 per million input tokens and $10 per million out
 | 2 | Module upload → narrated video | Done |
 | 3 | AI through our server (Anthropic API, key server-side) | Done ([`api/ai.js`](../api/ai.js)) |
 | 4 | Stripe subscriptions (Checkout, signed plan passes, customer portal) and per-plan AI budgets on `/api/ai` | Done ([`api/billing-core.js`](../api/billing-core.js)) |
-| 5 | Accounts and sign-in (restore a plan on a new device by email) | Next |
+| 5 | Accounts and sign-in, so a plan follows the student to a new device (today: Stripe's emailed portal link for managing or cancelling) | Next |
 | 6 | Store converted modules; share links for instructors | Next |
 | 7 | Instructor review mode (approve AI lessons) | Planned |
 | 8 | Canvas and D2L plug-ins | Planned |

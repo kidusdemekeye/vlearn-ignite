@@ -62,10 +62,11 @@ Following the AI engineering discipline Mike Vetter presented to the DSU AI Club
 | 5. Independent review by a separate agent | [`docs/03-review.md`](docs/03-review.md) |
 | 6. Evals on unseen questions | [`evals/report.md`](evals/report.md) |
 | 7. Compounded learnings for the next run | [`AGENTS.md`](AGENTS.md) |
+| 8. Payments security review | [`docs/07-payments-review.md`](docs/07-payments-review.md) |
 
 The **module → 3D video** feature then went through the full [Superpowers](https://github.com/obra/superpowers) workflow: brainstorm → [design](docs/superpowers/specs/2026-11-15-module-to-3d-design.md) (checked by a fresh "builder" agent) → [7-task plan](docs/superpowers/plans/2026-11-15-module-to-3d.md) → **subagent-driven build**: a fresh agent built each task test-first, a separate agent reviewed it, fixes were re-reviewed → whole-branch review by the most capable model → one fix wave → [summary](docs/04-review-3d.md).
 
-**Results:** 162 automated tests · 15/15 AI lessons valid on the first try · independent accuracy rating 11 correct, 4 minor imprecisions, 0 wrong ([eval report](evals/report.md)).
+**Results:** 169 automated tests · 15/15 AI lessons valid on the first try · independent accuracy rating 11 correct, 4 minor imprecisions, 0 wrong ([eval report](evals/report.md)).
 
 The git history shows each step as its own commit.
 
@@ -83,7 +84,7 @@ The git history shows each step as its own commit.
 ## Run it
 
 ```bash
-npm install && npm test # 162 unit tests (Node 20+; dev deps only for tests)
+npm install && npm test # 169 unit tests (Node 20+; dev deps only for tests)
 cd app && python3 -m http.server 8000
 # open http://localhost:8000 — ready-made lessons work anywhere;
 # AI features turn on when an AI connection is available (see below).
@@ -123,18 +124,23 @@ Upgrade ─► /api/billing (checkout) ─► Stripe Checkout ─► back to V L
      (no pass or a forged one → Free budget). Weekly: pass re-checked with Stripe.
 ```
 
-| Plan | Monthly AI budget (calls) |
-|---|---|
-| Free | 25 (about 1 module + 5 lessons) |
-| Student | 1,500 (fair use) |
-| Instructor | 4,000 |
+Budgets are measured in what the AI actually costs (tokens × Anthropic's price), so no plan can cost more than it earns:
+
+| Plan | Price | Monthly AI budget | Roughly |
+|---|---|---|---|
+| Free | $0 | $0.50 | 1 module + 5 lessons |
+| Student | $12 | $6 | 20 modules + lessons |
+| Instructor | $29 | $15 | 50+ modules, shared videos replay free |
 
 **Turn it on** (Vercel → Environment Variables, see [`.env.example`](.env.example)):
 
 1. In Stripe, create two recurring Prices: Student $12/month and Instructor $29/month. Copy their ids into `STRIPE_PRICE_STUDENT` and `STRIPE_PRICE_INSTRUCTOR`.
 2. Add `STRIPE_SECRET_KEY` (use a test key `sk_test_…` first), a long random `VLEARN_PASS_SECRET`, and `APP_URL` (your site's address).
 3. Turn on the Customer Portal in Stripe (Settings → Billing → Customer portal) so "Manage billing" works.
-4. For production, add Upstash Redis (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`) so AI budgets are shared across serverless instances.
+4. Add Upstash Redis (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`). It's required: budgets must be shared across serverless instances, so billing stays off without it.
+5. Use a **different** `VLEARN_PASS_SECRET` for Production and Preview. Passes also record Stripe test/live mode, so a test-card purchase can never unlock the live site.
+6. Optional: set `STRIPE_PORTAL_LOGIN_URL` (Stripe's no-code portal login link) so customers on a new device can manage or cancel their plan.
+7. Set a monthly spend limit in the Anthropic Console as a final backstop.
 
 Test with Stripe's test card `4242 4242 4242 4242`. Code: [`api/billing-core.js`](api/billing-core.js) (tested with a stand-in Stripe in [`tests/billing.test.mjs`](tests/billing.test.mjs)), [`app/billing.js`](app/billing.js).
 
@@ -145,7 +151,7 @@ Test with Stripe's test card `4242 4242 4242 4242`. Code: [`api/billing-core.js`
 | Plan | Price | For |
 |---|---|---|
 | Free | $0 | Built-in lessons, 5 AI lessons and 1 module a month |
-| Student | $12 / month ($99 / year) | Cert candidates and university students |
+| Student | $12 / month | Cert candidates and university students |
 | Instructor | $29 / month | Turning a course into videos for a class |
 | Schools & teams | $8 / student / term | Universities, bootcamps, company IT training |
 

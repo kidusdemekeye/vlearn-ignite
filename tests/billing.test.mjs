@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   PLANS, signPass, verifyPass, createCheckout, issuePass, refreshPass, createPortal,
-  memoryStore, checkQuota, billingStatus,
+  memoryStore, checkQuota, recordUsage, usageCostMicros, billingStatus, whoIsCalling,
 } from "../api/billing-core.js";
 import { handleAiRequest } from "../api/ai-core.js";
 
@@ -14,6 +14,8 @@ const env = {
   STRIPE_PRICE_INSTRUCTOR: "price_instructor",
   VLEARN_PASS_SECRET: SECRET,
   APP_URL: "https://vlearn.example",
+  UPSTASH_REDIS_REST_URL: "https://redis.example",
+  UPSTASH_REDIS_REST_TOKEN: "t",
 };
 
 // A fake Stripe: records calls, answers by path.
@@ -34,9 +36,9 @@ function fakeStripe(routes) {
 // --- Passes ---
 
 test("a signed pass verifies and carries plan, customer and expiry", () => {
-  const t = signPass({ sub: "cus_1", plan: "student", exp: NOW + 1000 }, SECRET);
+  const t = signPass({ sub: "cus_1", plan: "student", exp: NOW + 1000, live: false }, SECRET);
   const p = verifyPass(t, SECRET, NOW);
-  assert.deepEqual(p, { sub: "cus_1", plan: "student", exp: NOW + 1000 });
+  assert.deepEqual(p, { sub: "cus_1", plan: "student", exp: NOW + 1000, live: false });
 });
 
 test("a pass is rejected if tampered, signed with another secret, expired or malformed", () => {
@@ -63,7 +65,7 @@ test("signing refuses a missing or short secret", () => {
 
 // --- Status ---
 
-test("billing is enabled only when Stripe, both prices, the pass secret and the app URL are set", () => {
+test("billing is enabled only when Stripe, both prices, the pass secret, the app URL and a shared usage store are set", () => {
   assert.equal(billingStatus(env).enabled, true);
   for (const k of Object.keys(env)) assert.equal(billingStatus({ ...env, [k]: "" }).enabled, false, k);
   assert.deepEqual(Object.keys(billingStatus(env).plans), ["free", "student", "instructor"]);
@@ -111,7 +113,7 @@ test("checkout hides Stripe error details", async () => {
 // --- Issuing a pass after checkout ---
 
 const paidSession = (over = {}) => ({
-  id: "cs_1", status: "complete", payment_status: "paid", customer: "cus_9",
+  id: "cs_1", status: "complete", payment_status: "paid", customer: "cus_9", livemode: false, created: Math.floor(NOW / 1000) - 60,
   metadata: { plan: "student" },
   subscription: { id: "sub_1", status: "active", items: { data: [{ price: { id: "price_student" } }] } },
   ...over,
@@ -203,39 +205,59 @@ test("billing portal refuses forged passes", async () => {
   assert.equal(stripe.calls.length, 0);
 });
 
-// --- Quotas ---
+// --- Quotas (budgeted by AI cost, not by number of calls) ---
 
 test("plans have increasing monthly AI budgets", () => {
-  assert.ok(PLANS.free.aiCallsPerMonth < PLANS.student.aiCallsPerMonth);
-  assert.ok(PLANS.student.aiCallsPerMonth < PLANS.instructor.aiCallsPerMonth);
+  assert.ok(PLANS.free.aiBudgetCents < PLANS.student.aiBudgetCents);
+  assert.ok(PLANS.student.aiBudgetCents < PLANS.instructor.aiBudgetCents);
+  // Paid budgets stay well under the price, so a plan can't cost more than it earns.
+  assert.ok(PLANS.student.aiBudgetCents <= 600 && PLANS.instructor.aiBudgetCents <= 1500);
 });
 
-test("quota allows calls up to the plan budget, then refuses; identities are separate", async () => {
-  const store = memoryStore(() => NOW);
-  const limit = PLANS.free.aiCallsPerMonth;
-  for (let i = 0; i < limit; i++) assert.equal((await checkQuota(store, "ip:1", "free", NOW)).ok, true);
+test("usage cost is computed from tokens and the model's price", () => {
+  assert.equal(usageCostMicros("default", { input_tokens: 1_000_000, output_tokens: 0 }), 2_000_000);
+  assert.equal(usageCostMicros("default", { input_tokens: 0, output_tokens: 1_000_000 }), 10_000_000);
+  assert.equal(usageCostMicros("quick", { input_tokens: 1_000_000, output_tokens: 1_000_000 }), 600_000);
+  assert.equal(usageCostMicros("default", null), 0);
+});
+
+test("quota allows spending up to the plan budget, then refuses; identities are separate", async () => {
+  const store = memoryStore();
+  const budget = PLANS.free.aiBudgetCents * 10_000; // micro-dollars
+  assert.equal((await checkQuota(store, "ip:1", "free", NOW)).ok, true);
+  await recordUsage(store, "ip:1", budget, NOW);
   const over = await checkQuota(store, "ip:1", "free", NOW);
   assert.equal(over.ok, false);
-  assert.equal(over.limit, limit);
   assert.equal((await checkQuota(store, "ip:2", "free", NOW)).ok, true);
 });
 
 test("quota resets in a new month", async () => {
-  const store = memoryStore(() => NOW);
-  for (let i = 0; i <= PLANS.free.aiCallsPerMonth; i++) await checkQuota(store, "ip:1", "free", NOW);
+  const store = memoryStore();
+  await recordUsage(store, "ip:1", 10 ** 9, NOW);
+  assert.equal((await checkQuota(store, "ip:1", "free", NOW)).ok, false);
   const nextMonth = NOW + 32 * 24 * 3600 * 1000;
   assert.equal((await checkQuota(store, "ip:1", "free", nextMonth)).ok, true);
 });
 
+test("free users on IPv6 are grouped by their /64 network", () => {
+  const a = whoIsCalling({ ip: "2001:db8:1:2:aaaa::1" });
+  const b = whoIsCalling({ ip: "2001:db8:1:2:bbbb::9" });
+  const c = whoIsCalling({ ip: "2001:db8:1:3::1" });
+  assert.equal(a.identity, b.identity);
+  assert.notEqual(a.identity, c.identity);
+});
+
 // --- AI route enforces the plan ---
 
-const okAnthropic = async () => ({ ok: true, status: 200, json: async () => ({ content: [{ type: "text", text: "hi" }] }) });
+// One Sonnet call that costs 1 cent (input 2,500 tokens = 0.5c, output 500 tokens = 0.5c).
+const okAnthropic = async () => ({ ok: true, status: 200, json: async () => ({ content: [{ type: "text", text: "hi" }], usage: { input_tokens: 2500, output_tokens: 500 } }) });
 const msgs = [{ role: "user", content: "How does DNS work?" }];
+const callsFor = (plan) => PLANS[plan].aiBudgetCents; // 1 cent per call
 
-test("AI route: free users are limited by IP, and get a 402 with an upgrade hint when out", async () => {
-  const store = memoryStore(() => NOW);
+test("AI route: free users are limited by IP by cost, and get a 402 with an upgrade hint when out", async () => {
+  const store = memoryStore();
   const opts = { apiKey: "k", fetch: okAnthropic, quota: { store, passSecret: SECRET, now: NOW, ip: "203.0.113.5" } };
-  for (let i = 0; i < PLANS.free.aiCallsPerMonth; i++) assert.equal((await handleAiRequest({ messages: msgs }, opts)).status, 200);
+  for (let i = 0; i < callsFor("free"); i++) assert.equal((await handleAiRequest({ messages: msgs }, opts)).status, 200);
   const r = await handleAiRequest({ messages: msgs }, opts);
   assert.equal(r.status, 402);
   assert.equal(r.body.code, "quota");
@@ -243,28 +265,70 @@ test("AI route: free users are limited by IP, and get a 402 with an upgrade hint
 });
 
 test("AI route: a valid paid pass uses the paid budget; a forged one falls back to free", async () => {
-  const store = memoryStore(() => NOW);
-  const good = signPass({ sub: "cus_9", plan: "student", exp: NOW + 1000 }, SECRET);
+  const store = memoryStore();
+  const good = signPass({ sub: "cus_9", plan: "student", exp: NOW + 1000, live: false }, SECRET);
   const base = { apiKey: "k", fetch: okAnthropic };
-  for (let i = 0; i < PLANS.free.aiCallsPerMonth + 3; i++) {
-    const r = await handleAiRequest({ messages: msgs }, { ...base, quota: { store, passSecret: SECRET, now: NOW, ip: "1.1.1.1", pass: good } });
+  for (let i = 0; i < callsFor("free") + 3; i++) {
+    const r = await handleAiRequest({ messages: msgs }, { ...base, quota: { store, passSecret: SECRET, now: NOW, ip: "1.1.1.1", pass: good, live: false } });
     assert.equal(r.status, 200);
   }
   const forged = good.split(".")[0] + ".AAAA";
-  const store2 = memoryStore(() => NOW);
-  for (let i = 0; i < PLANS.free.aiCallsPerMonth; i++) await handleAiRequest({ messages: msgs }, { ...base, quota: { store: store2, passSecret: SECRET, now: NOW, ip: "2.2.2.2", pass: forged } });
+  const store2 = memoryStore();
+  for (let i = 0; i < callsFor("free"); i++) await handleAiRequest({ messages: msgs }, { ...base, quota: { store: store2, passSecret: SECRET, now: NOW, ip: "2.2.2.2", pass: forged } });
   const r = await handleAiRequest({ messages: msgs }, { ...base, quota: { store: store2, passSecret: SECRET, now: NOW, ip: "2.2.2.2", pass: forged } });
   assert.equal(r.status, 402);
 });
 
-test("AI route: bad requests don't use up quota", async () => {
-  const store = memoryStore(() => NOW);
+test("AI route: a test-mode pass doesn't unlock a live deployment", async () => {
+  const store = memoryStore();
+  const testPass = signPass({ sub: "cus_t", plan: "student", exp: NOW + 1000, live: false }, SECRET);
+  const opts = { apiKey: "k", fetch: okAnthropic, quota: { store, passSecret: SECRET, now: NOW, ip: "3.3.3.3", pass: testPass, live: true } };
+  for (let i = 0; i < callsFor("free"); i++) await handleAiRequest({ messages: msgs }, opts);
+  assert.equal((await handleAiRequest({ messages: msgs }, opts)).status, 402);
+});
+
+test("AI route: bad requests and failed upstream calls don't use up budget", async () => {
+  const store = memoryStore();
   const opts = { apiKey: "k", fetch: okAnthropic, quota: { store, passSecret: SECRET, now: NOW, ip: "9.9.9.9" } };
   for (let i = 0; i < 50; i++) await handleAiRequest({ messages: [] }, opts);
+  const failing = async () => ({ ok: false, status: 500, json: async () => ({}) });
+  for (let i = 0; i < 50; i++) await handleAiRequest({ messages: msgs }, { ...opts, fetch: failing });
   assert.equal((await handleAiRequest({ messages: msgs }, opts)).status, 200);
 });
 
 test("AI route without quota options behaves as before", async () => {
   const r = await handleAiRequest({ messages: msgs }, { apiKey: "k", fetch: okAnthropic });
   assert.equal(r.status, 200);
+});
+
+// --- Review fixes: live mode, stale sessions, upgrades ---
+
+test("a test-mode session can't mint a pass on a live key, and vice versa", async () => {
+  const liveEnv = { ...env, STRIPE_SECRET_KEY: "sk_live_x" };
+  const stripe = fakeStripe({ "GET /v1/checkout/sessions/cs_1": () => paidSession({ livemode: false }) });
+  assert.equal((await issuePass({ session_id: "cs_1" }, liveEnv, stripe, NOW)).status, 402);
+  const stripe2 = fakeStripe({ "GET /v1/checkout/sessions/cs_1": () => paidSession({ livemode: true }) });
+  assert.equal((await issuePass({ session_id: "cs_1" }, env, stripe2, NOW)).status, 402);
+  const stripe3 = fakeStripe({ "GET /v1/checkout/sessions/cs_1": () => paidSession({ livemode: true }) });
+  const ok = await issuePass({ session_id: "cs_1" }, liveEnv, stripe3, NOW);
+  assert.equal(verifyPass(ok.body.pass, SECRET, NOW).live, true);
+});
+
+test("checkout sessions older than a day can't mint passes", async () => {
+  const old = paidSession({ created: Math.floor(NOW / 1000) - 2 * 24 * 3600 });
+  const stripe = fakeStripe({ "GET /v1/checkout/sessions/cs_1": () => old });
+  assert.equal((await issuePass({ session_id: "cs_1" }, env, stripe, NOW)).status, 410);
+});
+
+test("refresh keeps a long-absent subscriber: an old pass is renewed if Stripe says active", async () => {
+  const ancient = signPass({ sub: "cus_9", plan: "student", exp: NOW - 200 * 24 * 3600 * 1000, live: false }, SECRET);
+  const stripe = fakeStripe({ "GET /v1/subscriptions": () => ({ data: [{ status: "active", items: { data: [{ price: { id: "price_student" } }] } }] }) });
+  assert.equal((await refreshPass({ pass: ancient }, env, stripe, NOW)).status, 200);
+});
+
+test("checkout for an existing customer reuses their Stripe customer", async () => {
+  const pass = signPass({ sub: "cus_9", plan: "student", exp: NOW + 1000, live: false }, SECRET);
+  const stripe = fakeStripe({ "POST /v1/checkout/sessions": () => ({ url: "https://checkout.stripe.com/c/x" }) });
+  await createCheckout({ plan: "instructor", pass }, env, stripe, NOW);
+  assert.equal(new URLSearchParams(stripe.calls[0].init.body).get("customer"), "cus_9");
 });

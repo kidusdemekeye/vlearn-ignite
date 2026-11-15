@@ -24,6 +24,8 @@ export default async function handler(req, res) {
     quota: {
       store,
       passSecret: process.env.VLEARN_PASS_SECRET,
+      // Passes from Stripe test mode don't unlock a live deployment (and vice versa).
+      live: process.env.STRIPE_SECRET_KEY ? process.env.STRIPE_SECRET_KEY.startsWith("sk_live_") : undefined,
       pass: auth.startsWith("Bearer ") ? auth.slice(7) : undefined,
       ip: String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "").split(",")[0].trim(),
     },
