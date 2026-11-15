@@ -1,0 +1,168 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { buildCourse } from "../app/course.js";
+import { GOLDEN_LESSONS } from "../app/lessons.js";
+
+const NOSTRUCT = "Couldn't read the structure of this module. Try a shorter file or a PDF.";
+const module_ = {
+  title: "module3.pdf", pages: 4, slides: 0,
+  text: "[page 1] Intro to networks.\n[page 2] Cables and topologies are covered here.\n[page 3] A DNS lookup turns a name into an address. The resolver asks servers.\n[page 4] The end.",
+};
+const card = { type: "card", title: "Cable types", points: ["Copper carries electrical signals", "Fibre carries light"], narration: "Cables carry bits.", citationIds: ["module_p2"] };
+const outline = (items) => ({ version: 1, title: "Module 3", source: "module3.pdf", items, citations: [] });
+const lessonItem = (topic = "DNS lookup") => ({ type: "lesson", topic, question: "How does a DNS lookup work?" });
+const goodLesson = () => ({ ...GOLDEN_LESSONS[0], question: "How does a DNS lookup work?" });
+const json = (o) => ({ text: JSON.stringify(o) });
+
+// Scripted fake ai: each entry is a reply object, a string, or an Error to reject with.
+function fake(script) {
+  const calls = [];
+  const fn = async (input, opts) => {
+    calls.push({ input, opts });
+    const next = script.shift();
+    if (next === undefined) throw new Error("script exhausted");
+    if (typeof next === "function") return next(opts);
+    if (next instanceof Error) throw next;
+    return typeof next === "string" ? { text: next } : next;
+  };
+  fn.calls = calls;
+  return fn;
+}
+const rateLimited = () => Object.assign(new Error("slow down"), { code: "rate_limited" });
+
+test("valid outline on first try: onOutline once, items reported in order, cards and osi labelled", async () => {
+  const items = [card, { type: "osi", focus: "layers" }, { type: "card", ...card, title: "More" }];
+  const ai = fake([json(outline(items))]);
+  const seen = []; let outlines = 0;
+  const result = await buildCourse(module_, ai, { onOutline: () => outlines++, onItem: (i, it) => seen.push([i, it]) });
+  assert.equal(outlines, 1);
+  assert.deepEqual(seen.map((s) => s[0]), [0, 1, 2]);
+  assert.equal(seen[0][1].label, "From your module · AI summary");
+  assert.equal(seen[1][1].label, "Built-in · reviewed");
+  assert.equal(result.items.length, 3);
+  assert.equal(ai.calls.length, 1);
+  assert.equal(ai.calls[0].opts.modelTier, "default");
+});
+
+test("lessons are generated one at a time in order and carry lesson and label", async () => {
+  const ai = fake([json(outline([lessonItem("DNS lookup"), card, lessonItem("DNS again")])), json(goodLesson()), json(goodLesson())]);
+  const seen = [];
+  const result = await buildCourse(module_, ai, { onItem: (i, it) => seen.push(i) });
+  assert.deepEqual(seen, [0, 1, 2]);
+  assert.equal(result.items[0].type, "lesson");
+  assert.equal(result.items[0].lesson.question, "How does a DNS lookup work?");
+  assert.equal(result.items[0].label, "AI-built · structure checked, not hand-verified");
+  assert.equal(result.items[1].label, "From your module · AI summary");
+  assert.equal(result.title, "Module 3");
+});
+
+test("invalid lesson twice then valid: the valid one is used", async () => {
+  const ai = fake([json(outline([lessonItem()])), json({ nope: 1 }), "not json at all", json(goodLesson())]);
+  const result = await buildCourse(module_, ai, {});
+  assert.equal(result.items[0].type, "lesson");
+  assert.equal(ai.calls.length, 4);
+  // repair round carries the earlier reply and a repair message
+  const last = ai.calls[3].input;
+  assert.ok(Array.isArray(last) && last.at(-1).role === "user");
+});
+
+test("invalid lesson 3 times: fallback card citing the module page", async () => {
+  const ai = fake([json(outline([lessonItem()])), json({}), json({}), json({})]);
+  const seen = [];
+  const result = await buildCourse(module_, ai, { onItem: (i, it) => seen.push(it) });
+  const it = result.items[0];
+  assert.equal(it.type, "card");
+  assert.equal(it.fallback, true);
+  assert.equal(it.label, "From your module · couldn't animate");
+  assert.deepEqual(it.citationIds, ["module_p1"]); // first marker in the lesson excerpt (starts 1500 chars before the topic)
+  assert.equal(seen[0], it);
+});
+
+test("fallback with no page marker near the topic has no page", async () => {
+  const m = { title: "x.txt", pages: 0, slides: 0, text: "Plain text about handshakes." };
+  const ai = fake([json(outline([lessonItem("TCP handshake")])), json({}), json({}), json({})]);
+  const result = await buildCourse(m, ai, {});
+  assert.equal(result.items[0].fallback, true);
+  assert.deepEqual(result.items[0].citationIds, []);
+});
+
+test("rate_limited during a lesson counts as a failed attempt, then fallback", async () => {
+  const ai = fake([json(outline([lessonItem()])), rateLimited(), rateLimited(), rateLimited()]);
+  const result = await buildCourse(module_, ai, {});
+  assert.equal(result.items[0].fallback, true);
+  assert.equal(ai.calls.length, 4);
+});
+
+test("rate_limited once then a valid lesson is used", async () => {
+  const ai = fake([json(outline([lessonItem()])), rateLimited(), json(goodLesson())]);
+  const result = await buildCourse(module_, ai, {});
+  assert.equal(result.items[0].type, "lesson");
+});
+
+test("outline invalid 3 times rejects with the structure message and never calls onOutline", async () => {
+  const ai = fake([json({ version: 1 }), "garbage", json({ version: 1 })]);
+  let called = false;
+  await assert.rejects(buildCourse(module_, ai, { onOutline: () => { called = true; } }), { message: NOSTRUCT });
+  assert.equal(called, false);
+  assert.equal(ai.calls.length, 3);
+});
+
+test("outline that tries the fallback key is rejected", async () => {
+  const fb = { ...card, fallback: true };
+  const ai = fake([json(outline([fb])), json(outline([fb])), json(outline([fb]))]);
+  await assert.rejects(buildCourse(module_, ai, {}), { message: NOSTRUCT });
+});
+
+test("outline repaired on the second try", async () => {
+  const ai = fake([json({ version: 1 }), json(outline([card]))]);
+  const result = await buildCourse(module_, ai, {});
+  assert.equal(result.items.length, 1);
+});
+
+test("outline {error} reply rejects with that message", async () => {
+  const ai = fake([json({ error: "V Learn teaches networking." })]);
+  await assert.rejects(buildCourse(module_, ai, {}), { message: "V Learn teaches networking." });
+  assert.equal(ai.calls.length, 1);
+});
+
+test("AI error during the outline is rethrown", async () => {
+  const ai = fake([rateLimited()]);
+  await assert.rejects(buildCourse(module_, ai, {}), { code: "rate_limited" });
+});
+
+test("abort after the outline: no onItem calls, no more AI calls, AbortError", async () => {
+  const ctl = new AbortController();
+  const ai = fake([json(outline([lessonItem(), card])), () => new Promise(() => {})]);
+  const seen = [];
+  const p = buildCourse(module_, ai, {
+    signal: ctl.signal, onOutline: () => setTimeout(() => ctl.abort(), 0), onItem: (i) => seen.push(i),
+  });
+  await assert.rejects(p, { name: "AbortError" });
+  assert.deepEqual(seen, []);
+  assert.equal(ai.calls.length <= 2, true);
+  const n = ai.calls.length;
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(ai.calls.length, n);
+});
+
+test("reply that arrives after abort is ignored", async () => {
+  const ctl = new AbortController();
+  const ai = fake([json(outline([lessonItem()])), () => { ctl.abort(); return json(goodLesson()); }]);
+  const seen = [];
+  await assert.rejects(buildCourse(module_, ai, { signal: ctl.signal, onItem: (i) => seen.push(i) }), { name: "AbortError" });
+  assert.deepEqual(seen, []);
+});
+
+test("already-aborted signal makes no AI call", async () => {
+  const ctl = new AbortController(); ctl.abort();
+  const ai = fake([]);
+  await assert.rejects(buildCourse(module_, ai, { signal: ctl.signal }), { name: "AbortError" });
+  assert.equal(ai.calls.length, 0);
+});
+
+test("signal is passed to every ai call", async () => {
+  const ctl = new AbortController();
+  const ai = fake([json(outline([lessonItem()])), json(goodLesson())]);
+  await buildCourse(module_, ai, { signal: ctl.signal });
+  assert.ok(ai.calls.every((c) => c.opts.signal === ctl.signal));
+});
