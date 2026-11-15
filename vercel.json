@@ -1,0 +1,5 @@
+{
+  "buildCommand": null,
+  "outputDirectory": "app",
+  "functions": { "api/ai.js": { "maxDuration": 60 } }
+}

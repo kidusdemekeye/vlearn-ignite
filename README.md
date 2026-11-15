@@ -76,11 +76,29 @@ The git history shows each step as its own commit.
 ## Run it
 
 ```bash
-npm test                 # 50 unit tests, no dependencies (Node 20+)
+npm test                 # 59 unit tests, no dependencies (Node 20+)
 cd app && python3 -m http.server 8000
 # open http://localhost:8000 — ready-made lessons work anywhere;
-# "ask your own question" needs the Claude-hosted version (live link above).
+# AI features turn on when an AI connection is available (see below).
 ```
+
+## Connecting the AI
+
+V Learn talks to AI through one small adapter ([`app/ai.js`](app/ai.js)), so the same app runs anywhere:
+
+| Where it runs | How it reaches the AI | Keys |
+|---|---|---|
+| Inside Claude (live link above) | The viewer's own Claude session | None needed |
+| Published on Vercel (or any Node host) | `POST /api/ai` → [`api/ai.js`](api/ai.js) → **Anthropic Messages API** | `ANTHROPIC_API_KEY`, server-side only |
+| Plain static hosting | No AI: ready-made lessons only, AI controls hidden | None |
+
+**Deploy with the Anthropic API**
+
+1. Import the repo into Vercel (it reads [`vercel.json`](vercel.json)).
+2. In the project's Environment Variables, add `ANTHROPIC_API_KEY` (from console.anthropic.com). Optional: `VLEARN_MODEL`, `VLEARN_QUICK_MODEL` (see [`.env.example`](.env.example)).
+3. Deploy. The page checks `GET /api/ai` and turns on "ask your own question" and follow-ups.
+
+The server route validates every request (roles, size, number of repair rounds), keeps the key in a header the browser never sees, and hides upstream error details. AI output still has to pass the lesson validator before anything is shown.
 
 ## Business
 
@@ -91,4 +109,4 @@ cd app && python3 -m http.server 8000
 
 ## Tech
 
-Plain HTML, CSS and JavaScript modules, no build step. SVG animation. Claude for lesson planning and follow-ups, Claude voice for narration (falls back to the browser's speech), Claude dictation for spoken questions. Node's built-in test runner.
+Plain HTML, CSS and JavaScript modules, no build step. SVG animation. Claude (via the Anthropic API or a Claude session) for lesson planning and follow-ups, Claude voice for narration (falls back to the browser's speech), Claude dictation for spoken questions. One Vercel serverless function. Node's built-in test runner.

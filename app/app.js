@@ -5,6 +5,7 @@ import {
 } from "./core.js";
 import { GOLDEN_LESSONS } from "./lessons.js";
 import { Stage } from "./engine.js";
+import { connectAi } from "./ai.js";
 
 const $ = (s) => document.querySelector(s);
 const make = (tag, props = {}, text) => {
@@ -212,7 +213,7 @@ function setStatus(text, kind = "info") {
 async function generateLesson(question) {
   let q;
   try { q = sanitizeQuestion(question); } catch (e) { return setStatus(e.message, "error"); }
-  if (!sample) return setStatus("Custom questions need Claude. Open this page in Claude while signed in, or pick a ready-made lesson below.", "error");
+  if (!sample) return setStatus("Custom questions need an AI connection. Open this page in Claude, or deploy it with an Anthropic API key. Ready-made lessons work everywhere.", "error");
 
   pause();
   const gen = ++state.gen;
@@ -351,10 +352,10 @@ function init() {
 
   renderLesson(GOLDEN_LESSONS[0], { text: "Verified lesson · hand-checked", kind: "verified" });
 
-  // Light up Claude-powered features when the viewer can run them.
+  // Light up AI features: Claude session inside Claude, or our /api/ai route when published elsewhere.
+  connectAi().then((ai) => { sample = ai; markAiAvailability(!!ai); }).catch(() => markAiAvailability(false));
   const use = window.claude?.use?.bind(window.claude);
-  if (!use) { markAiAvailability(false); return; }
-  use("sample").then((s) => { sample = s; markAiAvailability(!!s); }).catch(() => markAiAvailability(false));
+  if (!use) return;
   use("tts").then((t) => { tts = t; }).catch(() => {});
   use("dictation").then((d) => {
     dictation = d;

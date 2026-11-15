@@ -10,7 +10,8 @@ Read `docs/01-spec.md` and `docs/02-plan.md` before changing anything.
 - The lesson contract (`src/lesson-contract.ts`, mirrored in `app/core.js`) is the source of truth. Change it only with a test.
 - AI output is untrusted data: it must pass `validateLesson` before it reaches the engine.
 - Render text with `textContent`, never `innerHTML`.
-- No API keys or secrets anywhere in the repo.
+- No API keys or secrets anywhere in the repo. The Anthropic key lives only in the host's environment (`ANTHROPIC_API_KEY`).
+- All AI calls go through `app/ai.js`; never call a provider directly from other files.
 - Citations come only from the vetted library in `app/core.js`.
 - Write the failing test first, then the code. Run `npm test` before every commit.
 
