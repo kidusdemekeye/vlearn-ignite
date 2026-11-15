@@ -70,6 +70,7 @@ const ID_RE = /^[a-z][a-z0-9_]*$/;
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 // Control characters, zero-width and bidi-override characters are never allowed in displayed text.
 const BAD_CHARS = /[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/;
+const BAD_CHARS_G = new RegExp(BAD_CHARS.source, "g");
 const isStr = (v, min, max) =>
   typeof v === "string" && v.length <= max && v.trim().length >= min && !BAD_CHARS.test(v);
 const isId = (v) => typeof v === "string" && ID_RE.test(v);
@@ -289,7 +290,7 @@ type Protocol = ${PROTOCOLS.map((k) => `"${k}"`).join(" | ")};
 // All ids are lowercase_snake_case.`;
 
 export function sanitizeQuestion(q) {
-  const clean = String(q ?? "").replace(/[<>]/g, " ").replace(BAD_CHARS, " ").replace(/\s+/g, " ").trim();
+  const clean = String(q ?? "").replace(/[<>]/g, " ").replace(BAD_CHARS_G, " ").replace(/\s+/g, " ").trim();
   if (!clean) throw new Error("Please type a question.");
   if (clean.length > MAX_QUESTION_LENGTH) throw new Error(`Please keep your question under ${MAX_QUESTION_LENGTH} characters.`);
   return clean;
@@ -377,7 +378,9 @@ ${q}
 export const MAX_COURSE_ITEMS = 12;
 const OSI_FOCUS = ["encapsulation", "layers"];
 
-export function validateCourse(input, moduleInfo) {
+// options.allowFallback: only for courses the app assembled itself. AI outlines never get it.
+export function validateCourse(input, moduleInfo, options = {}) {
+  const allowFallback = isObj(options) && options.allowFallback === true;
   const errors = [];
   if (!isObj(input)) return { ok: false, errors: ["course must be a JSON object"] };
   const C = input;
@@ -412,7 +415,17 @@ export function validateCourse(input, moduleInfo) {
       if (!isStr(it.topic, 1, 80)) errors.push(`${at}.topic must be 1-80 characters`);
       if (!isStr(it.question, 1, MAX_QUESTION_LENGTH)) errors.push(`${at}.question must be 1-${MAX_QUESTION_LENGTH} characters`);
     } else if (it.type === "card") {
-      const fb = it.fallback === true;
+      if (it.fallback !== undefined && !allowFallback) errors.push(`${at}.fallback is not allowed in this course`);
+      const fb = allowFallback && it.fallback === true;
+      if (fb) {
+        // The flag may not smuggle content: the card must equal what fallbackCard() builds.
+        const m = /^Covered in your module(?: on page ([1-9][0-9]*))?$/.exec(Array.isArray(it.points) ? String(it.points[0]) : "");
+        const want = isStr(it.title, 1, 80) && m ? fallbackCard({ topic: it.title }, m[1] ? Number(m[1]) : null) : null;
+        if (!want || JSON.stringify([it.title, it.points, it.narration, it.citationIds])
+          !== JSON.stringify([want.title, want.points, want.narration, want.citationIds])) {
+          errors.push(`${at} is marked fallback but does not match the fixed fallback card`);
+        }
+      }
       if (!isStr(it.title, 1, 80)) errors.push(`${at}.title must be 1-80 characters`);
       // Fallback cards carry fixed text from fallbackCard(), so the 90-char point limit does not apply.
       const maxPoint = fb ? 200 : 90;
@@ -474,7 +487,7 @@ export function fallbackCard(item, page) {
 const MAX_MODULE_TEXT = 40000;
 // Module text is untrusted: strip angle brackets (so it cannot close our tags) and control characters.
 const cleanModuleText = (t) =>
-  String(t ?? "").replace(/[<>]/g, " ").replace(/[^\S\n]+/g, " ").replace(BAD_CHARS, (c) => (c === "\n" ? c : " "));
+  String(t ?? "").replace(/[<>]/g, " ").replace(/[^\S\n]+/g, " ").replace(BAD_CHARS_G, (c) => (c === "\n" ? c : " "));
 
 function moduleRanges(module) {
   const out = [];

@@ -49,10 +49,33 @@ test("validateCourse rejects unknown types and osi focus", () => {
 
 test("validateCourse accepts a fallback card with fixed points and only a module citation", () => {
   const c = fallbackCard({ topic: "Subnetting" }, 7);
-  const r = validateCourse(course([c]), { pages: 12 });
+  const r = validateCourse(course([c]), { pages: 12 }, { allowFallback: true });
   assert.equal(r.ok, true, JSON.stringify(r.errors));
   assert.equal(r.course.items[0].fallback, true);
-  assert.equal(validateCourse(course([fallbackCard({ topic: "T" }, null)]), {}).ok, true);
+  assert.equal(validateCourse(course([fallbackCard({ topic: "T" }, null)]), {}, { allowFallback: true }).ok, true);
+});
+
+test("an AI-style fallback card is rejected by default, even if it equals fallbackCard()", () => {
+  const smuggled = { type: "card", fallback: true, title: "x", points: [pt(200), pt(200)], narration: "n", citationIds: [] };
+  assert.match(bad(course([smuggled])).join(" "), /fallback/);
+  assert.match(bad(course([fallbackCard({ topic: "S" }, 7)]), { pages: 12 }).join(" "), /fallback/);
+});
+
+test("with allowFallback, a fallback card must equal fallbackCard() output", () => {
+  const opt = { allowFallback: true };
+  const smuggled = { type: "card", fallback: true, title: "x", points: [pt(200), pt(200)], narration: "n", citationIds: [] };
+  assert.equal(validateCourse(course([smuggled]), {}, opt).ok, false);
+  const c = fallbackCard({ topic: "S" }, 7);
+  assert.equal(validateCourse(course([{ ...c, points: [c.points[0], "Something else entirely"] }]), { pages: 12 }, opt).ok, false);
+  assert.equal(validateCourse(course([{ ...c, narration: "other" }]), { pages: 12 }, opt).ok, false);
+  assert.equal(validateCourse(course([{ ...c, citationIds: [] }]), { pages: 12 }, opt).ok, false);
+});
+
+test("module text with repeated bad characters is fully cleaned in prompts", () => {
+  const dirty = "a\u200bb\u200bc\u202ed\u202ee\u0001f\u0001g";
+  const p = buildOutlinePrompt({ title: dirty, text: dirty, pages: 1, slides: 0 });
+  const q = buildModuleLessonPrompt({ topic: dirty, question: "How does ARP work?" }, { title: dirty, text: dirty, pages: 1 }, null);
+  for (const out of [p, q]) assert.doesNotMatch(out, /[\u0001\u200b\u202e]/);
 });
 
 test("a non-fallback card may not use fallback to skip citations", () => {

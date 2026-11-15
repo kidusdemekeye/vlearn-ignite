@@ -347,3 +347,7 @@ test("layout never overlaps nodes, even for a 12-device chain", () => {
     assert.ok(dx >= 120 || dy >= 120, `nodes ${i} and ${j} overlap`);
   }
 });
+
+test("sanitizeQuestion removes every bad character, not just the first", () => {
+  assert.equal(sanitizeQuestion("a\u200bb\u200bc\u202ed\u202ee\u0001f\u0001g"), "a b c d e f g");
+});
