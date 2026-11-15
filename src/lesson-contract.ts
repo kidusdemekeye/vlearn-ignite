@@ -7,7 +7,8 @@
  *   - the animation engine (2D or 3D) PLAYS them
  *   - the narrator SPEAKS each step's narration
  *
- * Put this file at: src/contract/lesson.ts
+ * The runtime validator lives in app/core.js and mirrors this file.
+ * It also enforces the vetted source library for citations.
  * Requires: npm install zod
  */
 import { z } from "zod";
@@ -19,17 +20,22 @@ export const DeviceKind = z.enum([
   "phone",
   "router",
   "switch",
+  "access_point",
   "firewall",
   "dns_resolver",
   "dns_root",
   "dns_tld",
   "dns_authoritative",
   "web_server",
+  "server",
   "internet",
 ]);
 export type DeviceKind = z.infer<typeof DeviceKind>;
 
-export const Protocol = z.enum(["DNS", "TCP", "TLS", "HTTP", "ARP", "ICMP", "DHCP"]);
+export const Protocol = z.enum([
+  "DNS", "TCP", "UDP", "IP", "TLS", "HTTP", "QUIC",
+  "ARP", "ICMP", "DHCP", "SSH", "SMTP", "BGP",
+]);
 export type Protocol = z.infer<typeof Protocol>;
 
 const Id = z.string().regex(/^[a-z][a-z0-9_]*$/, "ids are lowercase_snake_case");

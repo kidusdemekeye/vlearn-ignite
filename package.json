@@ -4,5 +4,5 @@
   "private": true,
   "type": "module",
   "description": "V Learn: watch networking happen.",
-  "scripts": { "test": "node --test tests/" }
+  "scripts": { "test": "node --test tests/*.test.mjs" }
 }

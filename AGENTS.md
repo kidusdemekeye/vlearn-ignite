@@ -16,4 +16,5 @@ Read `docs/01-spec.md` and `docs/02-plan.md` before changing anything.
 
 ## Compounded learnings
 Add a line here whenever something went wrong or took longer than it should, so the next run is faster.
-- (start)
+
+- `node --test tests/` fails on Node 22+ (treats it as a module path). Use `node --test tests/*.test.mjs`.
