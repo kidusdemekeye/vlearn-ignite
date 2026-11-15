@@ -37,7 +37,7 @@ Web traffic usually runs over TCP, which gives a reliable, ordered stream. Befor
 
 [page 6]
 Cables and radio: Ethernet vs Wi-Fi
-Wired Ethernet usually runs over twisted-pair copper cable, such as Cat 5e or Cat 6, with an RJ45 plug; long or fast links often use fiber. Wi-Fi carries the same kind of layer 2 frames over radio, in the 2.4 GHz, 5 GHz and 6 GHz bands. A cable gives each device a dedicated link that is usually faster and more stable. Wi-Fi devices share the air with everything nearby, so walls, distance and busy channels slow it down. Both use MAC addresses to deliver frames on the local network.`;
+Wired Ethernet usually runs over twisted-pair copper cable, such as Cat 5e or Cat 6, with an RJ45 plug; long or fast links often use fiber. Wi-Fi uses its own 802.11 frames over radio, in the 2.4 GHz, 5 GHz and 6 GHz bands, with the same kind of MAC addresses, so the access point can bridge them onto Ethernet. A cable gives each device a dedicated link that is usually faster and more stable. Wi-Fi devices share the air with everything nearby, so walls, distance and busy channels slow it down. Both use 48-bit MAC addresses to deliver frames on the local network.`;
 
 export const SAMPLE_MODULE = {
   title: "Intro to Networking: How your laptop gets online",
@@ -103,7 +103,7 @@ const wifiLesson = {
     {
       id: "four_way",
       action: { type: "highlight", device: "ap", caption: "4-way handshake: both sides build encryption keys" },
-      narration: "On a protected network, the laptop and access point now run the 4-way handshake. They prove they share the Wi-Fi password and build fresh keys to encrypt traffic.",
+      narration: "On a protected network, the laptop and access point now run the 4-way handshake. They prove they hold the same key derived from the Wi-Fi password and build fresh keys to encrypt traffic.",
       citationIds: ["ieee80211_2020", "module_p2"],
     },
   ],
@@ -141,7 +141,7 @@ const dhcpLesson = {
     },
     {
       id: "ack",
-      action: { type: "send", path: ["router", "ap", "laptop"], packet: { protocol: "DHCP", label: "DHCPACK: it's yours", fields: { IP: "192.168.1.23", mask: "255.255.255.0", gateway: "192.168.1.1", DNS: "192.168.1.1" } } },
+      action: { type: "send", path: ["router", "ap", "laptop"], packet: { protocol: "DHCP", label: "DHCPACK: it's yours", fields: { IP: "192.168.1.23", mask: "255.255.255.0", gateway: "192.168.1.1", DNS: "198.51.100.53" } } },
       narration: "The server confirms with an Acknowledge. Along with the address it sends options: the subnet mask, the default gateway and the DNS server to use.",
       citationIds: ["rfc2131", "rfc2132", "module_p3"],
     },
@@ -177,7 +177,7 @@ const dnsLesson = {
   steps: [
     {
       id: "query",
-      action: { type: "send", path: ["laptop", "router", "resolver"], packet: { protocol: "DNS", label: "Where is example.com?", fields: { type: "A record", name: "example.com", transport: "UDP port 53" } } },
+      action: { type: "send", path: ["laptop", "router", "resolver"], packet: { protocol: "DNS", label: "Where is example.com?", fields: { type: "A record", name: "example.com", transport: "UDP port 53", resolver: "198.51.100.53 (from DHCP)" } } },
       narration: "Packets need an IP address, not a name. So your laptop asks a DNS resolver for the address of example.com, usually over UDP port 53.",
       citationIds: ["rfc1034", "rfc1035", "module_p4"],
     },
@@ -320,10 +320,10 @@ export const SAMPLE_COURSE = {
       title: "Ethernet vs Wi-Fi",
       points: [
         "Ethernet uses twisted-pair copper (Cat 5e, Cat 6) with RJ45 plugs, or fiber",
-        "Wi-Fi sends the same kind of frames over radio: 2.4, 5 and 6 GHz",
+        "Wi-Fi uses its own 802.11 frames over radio: 2.4, 5 and 6 GHz",
         "A cable is a dedicated link, usually faster and more stable",
         "Wi-Fi devices share the air, so walls, distance and busy channels slow it down",
-        "Both deliver frames on the local network using MAC addresses",
+        "Both use the same kind of 48-bit MAC addresses on the local network",
       ],
       narration: "Ethernet and Wi-Fi both carry frames addressed by MAC address. Ethernet uses a cable, which gives each device its own steady link. Wi-Fi uses radio waves that every nearby device shares.",
       citationIds: ["module_p6", "ieee80211_2020"],

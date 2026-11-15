@@ -66,3 +66,10 @@ test("the Wi-Fi lesson uses 802.11 with an access point and cites the standard",
     assert.ok(labels.includes(w), "missing " + w);
   }
 });
+
+test("the DNS server DHCP hands out is the resolver the DNS lesson asks", () => {
+  const lessons = SAMPLE_COURSE.items.filter((it) => it.type === "lesson").map((it) => it.lesson);
+  const ack = lessons.flatMap((l) => l.steps).find((s) => s.action.packet?.label.startsWith("DHCPACK"));
+  const query = lessons.flatMap((l) => l.steps).find((s) => s.action.packet?.protocol === "DNS");
+  assert.ok(query.action.packet.fields.resolver.startsWith(ack.action.packet.fields.DNS));
+});

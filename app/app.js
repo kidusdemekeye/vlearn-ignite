@@ -102,8 +102,12 @@ function syncToggle() {
   $("#view-3d").setAttribute("aria-pressed", String(state.view === "3d"));
 }
 
+// Only the latest request counts: a slow 3D load must not override a later click on 2D.
+let viewReq = 0;
 async function setView(v) {
+  const req = ++viewReq;
   if (v === "3d" && !(await ensure3d())) v = "2d";
+  if (req !== viewReq) { showSurface(currentSurface); return; }
   if (v === state.view) { syncToggle(); showSurface(currentSurface); return; }
   const wasPlaying = state.playing;
   const step = state.i;
