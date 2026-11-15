@@ -193,3 +193,16 @@ test("locateTopic: last marker at or before the hit, else first after, else null
   assert.equal(locateTopic(m, "nothing here"), null);
   assert.equal(locateTopic({ text: "zebra only" }, "zebra"), null);
 });
+
+test("an outline question the prompt builder rejects becomes a fallback card, the build continues", async () => {
+  const bad = { type: "lesson", topic: "DNS lookup", question: "<>" };
+  const ai = fake([json(outline([bad, card]))]);
+  const seen = [];
+  const result = await buildCourse(module_, ai, { onItem: (i, it) => seen.push(it) });
+  assert.equal(ai.calls.length, 1); // outline only: no lesson call for the bad question
+  assert.equal(result.items[0].type, "card");
+  assert.equal(result.items[0].fallback, true);
+  assert.equal(result.items[0].label, "From your module · couldn't animate");
+  assert.equal(result.items[1].title, "Cable types");
+  assert.equal(seen.length, 2);
+});

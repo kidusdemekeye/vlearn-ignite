@@ -98,7 +98,10 @@ export async function buildCourse(module, ai, { onOutline, onItem, signal, maxRe
     const src = outline.items[i];
     let item;
     if (src.type === "lesson") {
-      const res = await attempt(ai, buildModuleLessonPrompt(src, module, GOLDEN_LESSONS[0]), (text) => {
+      // A question the prompt builder rejects (e.g. only "<>") makes this item a fallback card.
+      let prompt = null;
+      try { prompt = buildModuleLessonPrompt(src, module, GOLDEN_LESSONS[0]); } catch {}
+      const res = prompt === null ? { ok: false } : await attempt(ai, prompt, (text) => {
         const parsed = parseLessonReply(text);
         if (parsed.kind !== "lesson") return { ok: false, errors: [parsed.message] };
         const lesson = { ...parsed.lesson, question: src.question };
