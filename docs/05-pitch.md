@@ -20,8 +20,9 @@ A picture of the real thing doesn't need the right background."
 - Numbers: 138 automated tests; 15/15 AI lessons valid on the first try; an independent rater found 11 fully correct, 4 minor imprecisions, 0 wrong; every task independently reviewed and fixed.
 
 ## 2:15 — Market (20%)
-- First customers: Network+, Security+, CCNA candidates. Hundreds of thousands sit these exams every year and already pay for prep.
-- $10–15/month subscription; then university, bootcamp and corporate IT training licences.
+- First customers: Network+, Security+, CCNA candidates and university students; they already pay for prep.
+- Pricing: Free · Student $12/mo · Instructor $29/mo · Schools $8/student/term. The AI is included; students never need an API key.
+- Unit economics: a whole module costs ~$0.25 of AI to convert and replays free after that → ~75–85% gross margin.
 - Upload-your-own-module is the wedge: instructors and students bring their own content.
 
 ## 2:40 — Impact & growth (20%)

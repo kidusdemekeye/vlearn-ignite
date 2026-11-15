@@ -4,7 +4,7 @@
 
 Ask a networking question, or **upload your own class module**, and watch it happen: a 3D network with packets flying between devices, a tutor voice explaining each step, and every step linked to the official standard (or the page of your module) that backs it.
 
-Built solo by **Kidus Demeke** (DSU Cyber Operations) at the **DSU × Wildfire Labs Ignite Hackathon, Nov 13–15 2026**.
+Founder: **Kidus Demeke**, cybersecurity student at Dakota State University.
 
 **▶ Live app:** https://claude.ai/artifact/4Sr6UyUtVJMvxsC53x54f6
 
@@ -109,10 +109,18 @@ The server route validates every request (roles, size, number of repair rounds),
 
 ## Business
 
-- **First customers:** Network+, Security+ and CCNA candidates, on a monthly subscription (about $10–15).
-- **Next:** licences for universities, bootcamps and corporate IT training.
-- **Growth:** the same engine (script → validator → animator) extends to security, programming and biology.
-- **Positioning:** Genio helps you capture the lecture. V Learn helps you *see* it.
+**The AI is included in every plan.** Students never need a Claude account or API key: our server calls the Anthropic API and the subscription covers it.
+
+| Plan | Price | For |
+|---|---|---|
+| Free | $0 | Built-in lessons, 5 AI lessons and 1 module a month |
+| Student | $12 / month ($99 / year) | Cert candidates and university students |
+| Instructor | $29 / month | Turning a course into videos for a class |
+| Schools & teams | $8 / student / term | Universities, bootcamps, company IT training |
+
+A whole module costs about $0.25 in AI to convert, and once converted it replays for free, so gross margins run about 75–85%. Full model, unit economics, go-to-market and roadmap: [`docs/06-business.md`](docs/06-business.md).
+
+**Positioning:** Genio helps you capture the lecture. V Learn helps you *see* it.
 
 ## Tech
 
