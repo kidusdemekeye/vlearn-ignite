@@ -42,7 +42,11 @@ function stopSpeech() {
 function speak(text) {
   if (!state.voice) return Promise.resolve();
   stopSpeech();
-  if (tts) return Promise.resolve(tts.speak(text, { rate: Math.min(1.5, Math.max(0.7, state.speed)) })).catch(() => {});
+  if (tts) {
+    // tts.speak can reject at once or never settle (e.g. a permission prompt left open): never wait past the guard.
+    const said = Promise.resolve().then(() => tts.speak(text, { rate: Math.min(1.5, Math.max(0.7, state.speed)) })).catch(() => {});
+    return Promise.race([said, delay(1500 + text.length * 90)]);
+  }
   const synth = window.speechSynthesis;
   if (!synth || typeof SpeechSynthesisUtterance === "undefined") return Promise.resolve();
   return new Promise((resolve) => {
@@ -57,8 +61,9 @@ function speak(text) {
 }
 const canSpeak = () => state.voice && (tts || (window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined"));
 const holdFor = (text) => Math.min(9000, Math.max(2500, String(text).length * 55)) / state.speed;
-// Speak, or (voice off / no speech engine) hold long enough to read the text.
-const narrate = (text) => (canSpeak() ? speak(text) : delay(holdFor(text)));
+// Speak, and hold at least long enough to read the text (so failed or cut-short speech doesn't rush the
+// step). Voice off / no speech engine: just the reading hold.
+const narrate = (text) => (canSpeak() ? Promise.all([speak(text), delay(holdFor(text))]) : delay(holdFor(text)));
 
 // ---------- 2D / 3D ----------
 function webglLikely() {
@@ -121,10 +126,10 @@ async function setView(v) {
 function redisplay(wasPlaying, step) {
   if (video.active) {
     const item = video.items[video.i];
-    if (wasPlaying) return startVideo(video.i, item?.type === "lesson" ? step : 0);
+    if (wasPlaying) return startVideo(video.i, resumeStep(item, step));
     setPlaying(false);
     if (!item) return showWaiting();
-    return showItemStill(item, step);
+    return showItemStill(item, resumeStep(item, step));
   }
   showSurface("lesson");
   prep();
@@ -341,7 +346,8 @@ function pause() {
   setPlaying(false);
 }
 function play() {
-  if (video.active) return startVideo(video.finished ? 0 : video.i);
+  // Resume from the current step of a lesson or OSI scene (a card restarts).
+  if (video.active) return video.finished ? startVideo(0) : startVideo(video.i, resumeStep(video.items[video.i], state.i));
   if (!state.lesson) return;
   const from = state.finished ? 0 : state.i;
   state.finished = false;
@@ -353,7 +359,7 @@ const togglePlay = () => (state.playing ? pause() : play());
 function goTo(i, animate) {
   if (!state.lesson) return;
   if (video.active) {
-    // Inside a video lesson: pause the video and show that step. Play restarts the item.
+    // Inside a video lesson: pause the video and show that step. Play continues from it.
     if (video.items[video.i]?.type !== "lesson") return;
     pause();
     i = Math.max(0, Math.min(state.lesson.steps.length - 1, i));
@@ -379,7 +385,10 @@ function goTo(i, animate) {
 const video = {
   active: false, gen: 0, abort: null, course: null, items: [], status: [], info: { pages: 0, slides: 0 },
   total: 0, i: 0, done: false, failed: false, finished: false, started: false, waiters: new Set(),
+  osiStep: 0, // the OSI step on screen, so Play resumes there
 };
+// Where to resume an item: lessons at the given step, OSI scenes at their current step, cards at the start.
+const resumeStep = (item, lessonStep) => item?.type === "lesson" ? lessonStep : item?.type === "osi" ? video.osiStep : 0;
 function wakeWaiters() { for (const w of video.waiters) w(); video.waiters.clear(); }
 
 const itemTitle = (it) => it.type === "lesson" ? it.topic : it.type === "card" ? it.title
@@ -508,6 +517,7 @@ function drawOsi2d(st) {
 }
 function fillOsiInfo(item, i, steps) {
   const st = steps[i];
+  video.osiStep = i;
   setHead(badgeOf(item), itemTitle(item), "From: " + (video.course?.title || ""));
   setInfo({
     count: `Step ${i + 1} of ${steps.length}`, proto: "OSI",
@@ -546,11 +556,12 @@ function showItemStill(item, step = 0) {
     else renderCard2d(item, true);
   } else {
     const steps = osiSteps(item.focus);
+    const at = Math.max(0, Math.min(steps.length - 1, step));
     osiPanels();
-    fillOsiInfo(item, 0, steps);
+    fillOsiInfo(item, at, steps);
     showSurface("osi");
-    if (cur() === stage3d) stage3d.showOsi(steps.slice(0, 1), () => {});
-    else drawOsi2d(steps[0]);
+    if (cur() === stage3d) stage3d.showOsi(steps.slice(at, at + 1), () => {});
+    else drawOsi2d(steps[at]);
   }
 }
 
@@ -572,18 +583,20 @@ async function playItem(k, run, fromStep) {
     return run === state.run;
   }
   const steps = osiSteps(item.focus);
+  const from = Math.max(0, Math.min(steps.length - 1, fromStep));
   osiPanels();
-  fillOsiInfo(item, 0, steps);
+  fillOsiInfo(item, from, steps);
   showSurface("osi");
   if (cur() === stage3d) {
-    await stage3d.showOsi(steps, (i, st) => {
+    // The 3D scene is drawn from each step's state, so it can start mid-way.
+    await stage3d.showOsi(steps.slice(from), (i, st) => {
       if (run !== state.run) return;
-      fillOsiInfo(item, i, steps);
+      fillOsiInfo(item, from + i, steps);
       return narrate(st.narration);
     });
     return run === state.run;
   }
-  for (let i = 0; i < steps.length; i++) {
+  for (let i = from; i < steps.length; i++) {
     fillOsiInfo(item, i, steps);
     drawOsi2d(steps[i]);
     await Promise.all([narrate(steps[i].narration), delay(1600 / state.speed)]);
@@ -671,7 +684,7 @@ function newSession() {
   video.gen++;
   Object.assign(video, {
     course: null, items: [], status: [], info: { pages: 0, slides: 0 }, total: 0, i: 0,
-    done: false, failed: false, finished: false, started: false,
+    done: false, failed: false, finished: false, started: false, osiStep: 0,
   });
   renderProgress();
   return video.gen;
