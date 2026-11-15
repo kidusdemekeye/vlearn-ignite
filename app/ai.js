@@ -4,16 +4,25 @@
 //      Anthropic API with a key kept on the server.
 // Both return an async function: ai(input, { modelTier, signal, onText }) -> { text }.
 
-export function httpProvider(url = "/api/ai", fetchFn = (...a) => fetch(...a)) {
+import { getPass } from "./billing.js";
+
+export function httpProvider(url = "/api/ai", fetchFn = (...a) => fetch(...a), passFn = getPass) {
   return async function ai(input, opts = {}) {
     const messages = typeof input === "string" ? [{ role: "user", content: input }] : input;
+    const headers = { "content-type": "application/json" };
+    const pass = passFn?.();
+    if (pass) headers.authorization = `Bearer ${pass}`;
     const res = await fetchFn(url, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify({ messages, tier: opts.modelTier === "quick" ? "quick" : "default" }),
       signal: opts.signal,
     });
     if (res.status === 429) throw Object.assign(new Error("rate limited"), { code: "rate_limited" });
+    if (res.status === 402) {
+      const info = await res.json().catch(() => ({}));
+      throw Object.assign(new Error(String(info?.error || "You've used this month's AI.")), { code: "quota", plan: info?.plan });
+    }
     if (!res.ok) throw Object.assign(new Error("AI request failed"), { code: "unavailable" });
     const data = await res.json();
     const text = String(data?.text ?? "");

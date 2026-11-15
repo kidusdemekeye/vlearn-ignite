@@ -17,8 +17,12 @@ const LABELS = {
 const NETWORK = /failed to fetch|networkerror|load failed|network ?error|err_network|econnrefused|enotfound/i;
 
 // What to show when building the video fails. Raw library or network errors are never shown.
+// Shown when the plan's monthly AI budget is used up.
+export const QUOTA_TEXT = (e) => `${e?.message || "You've used this month's AI."} Upgrade under Pricing to keep going, or try the built-in lessons.`;
+
 export function buildErrorText(e) {
   if (e?.code === "rate_limited") return "Claude is busy right now. Wait a moment and try again.";
+  if (e?.code === "quota") return QUOTA_TEXT(e);
   if (e?.code === "not_granted") return "Building a video needs permission to use Claude. Allow it from the page's permissions, or try the sample module.";
   if (NETWORK.test(String(e?.message ?? ""))) return "Couldn't reach the AI. Check your connection and try again.";
   if (e?.code || !e?.message || e?.name !== "Error" || /^Internal error/.test(e.message)) return "Something went wrong while building the video. Try again.";
@@ -65,7 +69,8 @@ async function attempt(ai, prompt, check, { signal, maxRepairs, soft }) {
     try {
       reply = await call(ai, messages, signal);
     } catch (err) {
-      if (err?.name === "AbortError" || !soft) throw err;
+      // Running out of the plan's AI budget stops the build; retrying can't help.
+      if (err?.name === "AbortError" || err?.code === "quota" || !soft) throw err;
       lastError = err;
       messages = prompt;
       continue;

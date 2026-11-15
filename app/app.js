@@ -6,8 +6,9 @@ import {
 import { GOLDEN_LESSONS } from "./lessons.js";
 import { Stage } from "./engine.js";
 import { connectAi } from "./ai.js";
+import { initBilling } from "./billing.js";
 import { readModuleFile, readErrorText } from "./ingest.js";
-import { buildCourse, buildErrorText } from "./course.js";
+import { buildCourse, buildErrorText, QUOTA_TEXT } from "./course.js";
 import { osiSteps, OSI_LAYERS, OSI_CITATIONS } from "./osi.js";
 import { SAMPLE_MODULE, SAMPLE_COURSE } from "./samples/intro-module.js";
 
@@ -816,7 +817,8 @@ async function generateLesson(question) {
     setStatus("I couldn't build a lesson for that one that passed every accuracy check, so I won't show a shaky version. Try rephrasing, or pick a ready-made lesson.", "error");
   } catch (e) {
     if (stale() || e?.name === "AbortError" || e?.code === "aborted") return;
-    const msg = e?.code === "rate_limited" ? "Claude is busy right now. Wait a moment and try again."
+    const msg = e?.code === "quota" ? QUOTA_TEXT(e)
+      : e?.code === "rate_limited" ? "Claude is busy right now. Wait a moment and try again."
       : e?.code === "not_granted" ? "Custom questions need permission to use Claude. Allow it from the page's permissions, or pick a ready-made lesson."
       : "Something went wrong while building the lesson. Try again.";
     setStatus(msg, "error");
@@ -859,7 +861,7 @@ async function askFollowUp(question) {
     $("#followup-label").hidden = false;
     speak(out.textContent);
   } catch (e) {
-    out.textContent = e?.code === "rate_limited" ? "Claude is busy right now. Try again in a moment." : "I couldn't get an answer. Try again.";
+    out.textContent = e?.code === "quota" ? QUOTA_TEXT(e) : e?.code === "rate_limited" ? "Claude is busy right now. Try again in a moment." : "I couldn't get an answer. Try again.";
   } finally {
     btn.disabled = false;
   }
@@ -983,3 +985,4 @@ function markAiAvailability(on) {
 }
 
 init();
+initBilling().catch(() => {});

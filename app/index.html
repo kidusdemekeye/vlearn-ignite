@@ -192,7 +192,12 @@ tbody tr.current { background: color-mix(in srgb, var(--accent) 14%, transparent
 .plan .price { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
 .plan .amount { font: 800 30px/1 var(--display); color: var(--ink); letter-spacing: -0.02em; }
 .plan .who { margin: 0; font-size: 13px; color: var(--muted); }
-.plan ul { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.plan ul { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; align-content: start; }
+.plan-btn { margin-top: auto; justify-content: center; text-decoration: none; }
+.plan { grid-template-rows: auto auto auto 1fr auto; }
+.billing-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.billing-bar .tag:empty { display: none; }
+.status[data-kind="ok"] { color: var(--p-http); }
 .plan-flag { position: absolute; top: 12px; right: 12px; font: 500 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
 .how { padding: 16px; display: grid; gap: 8px; font-size: 14px; color: var(--muted); }
 .how strong { color: var(--ink); }
@@ -479,6 +484,7 @@ body[data-mode="video"] #replay { display: none; }
           <li>1 module upload a month</li>
           <li>2D and 3D views</li>
         </ul>
+        <a class="btn plan-btn" href="#ask-title">Start free</a>
       </article>
       <article class="panel plan featured">
         <span class="plan-flag">Most popular</span>
@@ -491,6 +497,7 @@ body[data-mode="video"] #replay { display: none; }
           <li>Follow-up questions by voice</li>
           <li>Saved course library</li>
         </ul>
+        <button class="btn primary plan-btn plan-cta" type="button" data-plan="student">Upgrade to Student</button>
       </article>
       <article class="panel plan">
         <h3>Instructor</h3>
@@ -502,6 +509,7 @@ body[data-mode="video"] #replay { display: none; }
           <li>Review and approve AI lessons</li>
           <li>Up to 60 students</li>
         </ul>
+        <button class="btn plan-btn plan-cta" type="button" data-plan="instructor">Upgrade to Instructor</button>
       </article>
       <article class="panel plan">
         <h3>Schools &amp; teams</h3>
@@ -513,9 +521,16 @@ body[data-mode="video"] #replay { display: none; }
           <li>Admin dashboard and usage reports</li>
           <li>Volume pricing from 200 seats</li>
         </ul>
+        <p class="fine plan-btn">Contact us for a quote</p>
       </article>
     </div>
-    <p class="fine">Accounts and payments are being built now. Until then, everything on this page is free to try.</p>
+    <div class="billing-bar">
+      <span id="billing-plan" class="tag"></span>
+      <button class="btn" id="manage-billing" type="button" hidden>Manage billing</button>
+    </div>
+    <p id="billing-status" class="status" role="status" aria-live="polite" hidden></p>
+    <p id="billing-off" class="fine" hidden>Subscriptions are available on the V Learn website. Here, everything is free to try.</p>
+    <p class="fine">Payments are handled by Stripe. Your card details never reach V Learn. Cancel anytime from Manage billing.</p>
   </section>
 
   <footer>Space plays and pauses. Arrow keys step through. Click a row in the packet log to jump to it.</footer>
