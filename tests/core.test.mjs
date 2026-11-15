@@ -287,3 +287,63 @@ test("parser reports unparseable output", () => {
   const r = parseLessonReply("I can't do that");
   assert.equal(r.kind, "invalid");
 });
+
+// --- Fixes from the independent review (docs/03-review.md) ---
+import { buildFollowUpPrompt, sanitizeQuestion } from "../app/core.js";
+
+test("validator returns a clean copy without unknown keys", () => {
+  const l = goodLesson();
+  l.steps[1].action.path = "not-an-array";
+  l.extra = "x";
+  l.devices[0].onclick = "alert(1)";
+  const r = validateLesson(l);
+  assert.equal(r.ok, true);
+  assert.equal(r.lesson.extra, undefined);
+  assert.equal(r.lesson.devices[0].onclick, undefined);
+  assert.equal(r.lesson.steps[1].action.path, undefined);
+});
+
+test("follow-up prompt works on highlight steps and keeps lesson context in its own block", () => {
+  const l = validateLesson(goodLesson()).lesson;
+  const p = buildFollowUpPrompt(l, 1, "why?");
+  assert.match(p, /<lesson>[\s\S]*<\/lesson>/);
+  assert.match(p, /<question>\s*why\?\s*<\/question>/);
+});
+
+test("rejects whitespace-only, control and bidi-override text", () => {
+  for (const bad of ["   ", "a‮b", "a\u0007b", "​"]) {
+    const l = goodLesson();
+    l.devices[0].label = bad;
+    assert.equal(validateLesson(l).ok, false, JSON.stringify(bad));
+  }
+});
+
+test("rejects empty or very long packet field keys", () => {
+  for (const key of ["", "k".repeat(25)]) {
+    const l = goodLesson();
+    l.steps[0].action.packet.fields = { [key]: "v" };
+    assert.equal(validateLesson(l).ok, false);
+  }
+});
+
+test("caps path length", () => {
+  const l = goodLesson();
+  l.steps[0].action.path = Array.from({ length: 13 }, (_, i) => (i % 2 ? "router" : "laptop"));
+  assert.match(errorsOf(l), /path/);
+});
+
+test("question sanitizer strips angle brackets", () => {
+  const q = sanitizeQuestion("hi < /question> <question x> there");
+  assert.ok(!/[<>]/.test(q));
+});
+
+test("layout never overlaps nodes, even for a 12-device chain", () => {
+  const devices = Array.from({ length: 12 }, (_, i) => ({ id: "d" + i, kind: "router", label: "R" + i }));
+  const links = devices.slice(1).map((d, i) => ({ a: "d" + i, b: d.id }));
+  const { positions } = layoutLesson({ devices, links });
+  const pts = Object.values(positions);
+  for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+    const dx = Math.abs(pts[i].x - pts[j].x), dy = Math.abs(pts[i].y - pts[j].y);
+    assert.ok(dx >= 120 || dy >= 120, `nodes ${i} and ${j} overlap`);
+  }
+});
