@@ -2,7 +2,7 @@
 // No DOM here. AI output is untrusted: every reply is validated before it is used.
 import {
   buildOutlinePrompt, parseOutlineReply, buildModuleLessonPrompt, buildRepairMessage,
-  parseLessonReply, validateCourse, validateLesson, fallbackCard, moduleCitation,
+  parseLessonReply, validateCourse, validateLesson, fallbackCard, moduleCitation, locateTopic,
 } from "./core.js";
 import { GOLDEN_LESSONS } from "./lessons.js";
 
@@ -37,16 +37,11 @@ async function call(ai, input, signal) {
   }
 }
 
-// Page number of the first [page N]/[slide N] marker in the excerpt buildModuleLessonPrompt would use.
+// Where the topic is covered, as { page, kind } or null; only numbers that exist in the module count.
 function pageFor(item, module) {
-  const text = String(module.text ?? "").replace(/[<>]/g, " ").replace(/[^\S\n]+/g, " ");
-  const word = String(item.topic ?? "").toLowerCase().split(/\s+/).find((w) => w.length > 3) || "";
-  const hit = word ? text.toLowerCase().indexOf(word) : -1;
-  const start = Math.max(0, (hit === -1 ? 0 : hit) - 1500);
-  const m = /\[(?:page|slide) (\d+)\]/i.exec(text.slice(start, start + 6000));
-  const n = m ? Number(m[1]) : null;
-  // fallbackCard cites module_pN, so only use numbers that exist as pages.
-  return n && moduleCitation(`module_p${n}`, { pages: module.pages, slides: module.slides }) ? n : null;
+  const loc = locateTopic(module, item.topic);
+  if (!loc || !moduleCitation(`module_${loc.kind}${loc.n}`, { pages: module.pages, slides: module.slides })) return null;
+  return loc;
 }
 
 // Ask, validate, and repair up to maxRepairs times. `check(reply)` returns {ok, value} or {ok:false, errors}.
@@ -112,7 +107,7 @@ export async function buildCourse(module, ai, { onOutline, onItem, signal, maxRe
       }, { ...opts, soft: true });
       item = res.ok
         ? { type: "lesson", topic: src.topic, question: src.question, lesson: res.value, label: LABELS.lesson }
-        : { ...fallbackCard(src, pageFor(src, module)), label: LABELS.fallback };
+        : (() => { const loc = pageFor(src, module); return { ...fallbackCard(src, loc?.n ?? null, loc?.kind), label: LABELS.fallback }; })();
     } else if (src.type === "card") {
       item = { ...src, label: LABELS.card };
     } else {

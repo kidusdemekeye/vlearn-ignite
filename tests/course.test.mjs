@@ -180,3 +180,14 @@ test("802.11 is a valid packet protocol and library has the standard", () => {
     url: "https://standards.ieee.org/ieee/802.11/7028/",
   });
 });
+
+test("slide fallback card cites module_sN and validates; tampering is rejected", () => {
+  const c = fallbackCard({ topic: "TCP" }, 4, "s");
+  assert.equal(c.points[0], "Covered in your module on slide 4");
+  assert.deepEqual(c.citationIds, ["module_s4"]);
+  assert.equal(validateCourse(course([c]), { slides: 5 }, { allowFallback: true }).ok, true);
+  const r = validateCourse(course([{ ...c, citationIds: ["module_s2"] }]), { slides: 5 }, { allowFallback: true });
+  assert.equal(r.ok, false);
+  const r2 = validateCourse(course([{ ...c, points: ["Covered in your module on slide 4", "other"] }]), { slides: 5 }, { allowFallback: true });
+  assert.equal(r2.ok, false);
+});

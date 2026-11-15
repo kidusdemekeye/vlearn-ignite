@@ -419,8 +419,9 @@ export function validateCourse(input, moduleInfo, options = {}) {
       const fb = allowFallback && it.fallback === true;
       if (fb) {
         // The flag may not smuggle content: the card must equal what fallbackCard() builds.
-        const m = /^Covered in your module(?: on page ([1-9][0-9]*))?$/.exec(Array.isArray(it.points) ? String(it.points[0]) : "");
-        const want = isStr(it.title, 1, 80) && m ? fallbackCard({ topic: it.title }, m[1] ? Number(m[1]) : null) : null;
+        const m = /^Covered in your module(?: on (page|slide) ([1-9][0-9]*))?$/.exec(Array.isArray(it.points) ? String(it.points[0]) : "");
+        const want = isStr(it.title, 1, 80) && m
+          ? fallbackCard({ topic: it.title }, m[2] ? Number(m[2]) : null, m[1] === "slide" ? "s" : "p") : null;
         if (!want || JSON.stringify([it.title, it.points, it.narration, it.citationIds])
           !== JSON.stringify([want.title, want.points, want.narration, want.citationIds])) {
           errors.push(`${at} is marked fallback but does not match the fixed fallback card`);
@@ -469,17 +470,19 @@ export function validateCourse(input, moduleInfo, options = {}) {
 }
 
 // Fixed card used when a lesson cannot pass validation. No AI call, so it cannot be wrong.
-export function fallbackCard(item, page) {
+export function fallbackCard(item, page, kind = "p") {
   const hasPage = Number.isInteger(page) && page >= 1;
+  const k = kind === "s" ? "s" : "p";
+  const word = k === "s" ? "slide" : "page";
   return {
     type: "card",
     title: item.topic,
     points: [
-      hasPage ? `Covered in your module on page ${page}` : "Covered in your module",
+      hasPage ? `Covered in your module on ${word} ${page}` : "Covered in your module",
       "V Learn couldn't build an animation that passed its accuracy checks, so it shows this instead of a picture that might be wrong.",
     ],
     narration: "This topic is covered in your module. Open it to read the details.",
-    citationIds: hasPage ? [`module_p${page}`] : [],
+    citationIds: hasPage ? [`module_${k}${page}`] : [],
     fallback: true,
   };
 }
@@ -532,12 +535,34 @@ ${text}
 
 export const parseOutlineReply = parseLessonReply;
 
+// Index of the topic's longest word (over 3 chars) in the cleaned module text, or -1.
+function topicHit(text, topic) {
+  const words = String(topic ?? "").toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+  const word = words.reduce((a, w) => (w.length > a.length ? w : a), "");
+  return word ? text.toLowerCase().indexOf(word) : -1;
+}
+
+// Where in the module a topic is covered: the last [page N]/[slide N] marker at or before the first hit,
+// else the first marker after it; null when the topic is not found or there are no markers.
+export function locateTopic(module, topic) {
+  const text = cleanModuleText(module?.text);
+  const hit = topicHit(text, topic);
+  if (hit === -1) return null;
+  const re = /\[(page|slide) ([1-9][0-9]{0,3})\]/gi;
+  let before = null, after = null, m;
+  while ((m = re.exec(text))) {
+    const found = { kind: m[1].toLowerCase() === "slide" ? "s" : "p", n: Number(m[2]) };
+    if (m.index <= hit) before = found;
+    else { after = found; break; }
+  }
+  return before ?? after;
+}
+
 // A lesson prompt for one outline item, with the part of the module it came from.
 export function buildModuleLessonPrompt(item, module, example) {
   const base = buildLessonPrompt(item.question, example);
   const text = cleanModuleText(module.text);
-  const word = String(item.topic ?? "").toLowerCase().split(/\s+/).find((w) => w.length > 3) || "";
-  const hit = word ? text.toLowerCase().indexOf(word) : -1;
+  const hit = topicHit(text, item.topic);
   const start = Math.max(0, (hit === -1 ? 0 : hit) - 1500);
   const excerpt = text.slice(start, start + 6000);
   const title = cleanModuleText(module.title).replace(/\s+/g, " ").trim().slice(0, 120);

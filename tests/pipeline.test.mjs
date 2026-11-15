@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildCourse } from "../app/course.js";
+import { locateTopic, validateCourse } from "../app/core.js";
 import { GOLDEN_LESSONS } from "../app/lessons.js";
 
 const NOSTRUCT = "Couldn't read the structure of this module. Try a shorter file or a PDF.";
@@ -74,7 +75,7 @@ test("invalid lesson 3 times: fallback card citing the module page", async () =>
   assert.equal(it.type, "card");
   assert.equal(it.fallback, true);
   assert.equal(it.label, "From your module · couldn't animate");
-  assert.deepEqual(it.citationIds, ["module_p1"]); // first marker in the lesson excerpt (starts 1500 chars before the topic)
+  assert.deepEqual(it.citationIds, ["module_p3"]); // last marker at or before the topic hit
   assert.equal(seen[0], it);
 });
 
@@ -165,4 +166,30 @@ test("signal is passed to every ai call", async () => {
   const ai = fake([json(outline([lessonItem()])), json(goodLesson())]);
   await buildCourse(module_, ai, { signal: ctl.signal });
   assert.ok(ai.calls.every((c) => c.opts.signal === ctl.signal));
+});
+
+test("fallback for a topic with no hit in the text is uncited", async () => {
+  const ai = fake([json(outline([lessonItem("Quantum zebras")])), json({}), json({}), json({})]);
+  const result = await buildCourse(module_, ai, {});
+  assert.equal(result.items[0].fallback, true);
+  assert.deepEqual(result.items[0].citationIds, []);
+});
+
+test("slide-only module: fallback cites module_sN and the course validates", async () => {
+  const m = { title: "deck.pptx", pages: 0, slides: 3, text: "[slide 1] Intro\n[slide 2] The TCP handshake uses SYN packets.\n[slide 3] End" };
+  const ai = fake([json(outline([lessonItem("TCP handshake")])), json({}), json({}), json({})]);
+  const result = await buildCourse(m, ai, {});
+  assert.deepEqual(result.items[0].citationIds, ["module_s2"]);
+  assert.equal(result.items[0].points[0], "Covered in your module on slide 2");
+  const stripped = { ...result, items: [{ ...result.items[0], label: undefined }] };
+  delete stripped.items[0].label;
+  assert.equal(validateCourse(stripped, { slides: 3 }, { allowFallback: true }).ok, true);
+});
+
+test("locateTopic: last marker at or before the hit, else first after, else null", () => {
+  const m = { text: "[page 1] a\n[page 2] b zebra c\n[page 3] d" };
+  assert.deepEqual(locateTopic(m, "Zebra stuff"), { kind: "p", n: 2 });
+  assert.deepEqual(locateTopic({ text: "intro zebra\n[slide 4] x" }, "zebra"), { kind: "s", n: 4 });
+  assert.equal(locateTopic(m, "nothing here"), null);
+  assert.equal(locateTopic({ text: "zebra only" }, "zebra"), null);
 });
