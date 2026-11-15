@@ -1,0 +1,314 @@
+<title>V Learn</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Ask a networking question and watch it happen: animated packets, a tutor voice, and every step cited to the RFC that defines it.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: ask bar on top, then a "network bench" — live stage left, step card right, packet capture log below. */
+:root {
+  --bg: #eef2f5;
+  --surface: #ffffff;
+  --sunk: #e3e9ee;
+  --ink: #102030;
+  --muted: #566778;
+  --line: #c6d1da;
+  --accent: #0a6c86;
+  --accent-ink: #ffffff;
+  --warn: #c0352b;
+  --p-dns: #b86a00; --p-tcp: #2459c4; --p-udp: #4b6fa8; --p-ip: #3f5b73; --p-tls: #7440bf;
+  --p-http: #16804d; --p-quic: #8a4bb0; --p-arp: #b23d6b; --p-icmp: #0b8585; --p-dhcp: #7d6a00;
+  --p-ssh: #5a5a5a; --p-smtp: #a1501f; --p-bgp: #6b4f2a; --p-note: #566778;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141b; --surface: #151f29; --sunk: #0f1821; --ink: #e2eaf1; --muted: #93a4b4; --line: #2a3a49;
+    --accent: #3fb4d1; --accent-ink: #061218; --warn: #ff7a6e;
+    --p-dns: #f0a33c; --p-tcp: #6f9bff; --p-udp: #8fb0e3; --p-ip: #9fb6c9; --p-tls: #b48cf2;
+    --p-http: #4fcf8a; --p-quic: #c48ce6; --p-arp: #f07ba8; --p-icmp: #3fd0cc; --p-dhcp: #d9c24a;
+    --p-ssh: #b8b8b8; --p-smtp: #ee9a64; --p-bgp: #c9a571; --p-note: #93a4b4;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141b; --surface: #151f29; --sunk: #0f1821; --ink: #e2eaf1; --muted: #93a4b4; --line: #2a3a49;
+  --accent: #3fb4d1; --accent-ink: #061218; --warn: #ff7a6e;
+  --p-dns: #f0a33c; --p-tcp: #6f9bff; --p-udp: #8fb0e3; --p-ip: #9fb6c9; --p-tls: #b48cf2;
+  --p-http: #4fcf8a; --p-quic: #c48ce6; --p-arp: #f07ba8; --p-icmp: #3fd0cc; --p-dhcp: #d9c24a;
+  --p-ssh: #b8b8b8; --p-smtp: #ee9a64; --p-bgp: #c9a571; --p-note: #93a4b4;
+  color-scheme: dark;
+}
+
+[data-proto="DNS"] { --pc: var(--p-dns); } [data-proto="TCP"] { --pc: var(--p-tcp); } [data-proto="UDP"] { --pc: var(--p-udp); }
+[data-proto="IP"] { --pc: var(--p-ip); } [data-proto="TLS"] { --pc: var(--p-tls); } [data-proto="HTTP"] { --pc: var(--p-http); }
+[data-proto="QUIC"] { --pc: var(--p-quic); } [data-proto="ARP"] { --pc: var(--p-arp); } [data-proto="ICMP"] { --pc: var(--p-icmp); }
+[data-proto="DHCP"] { --pc: var(--p-dhcp); } [data-proto="SSH"] { --pc: var(--p-ssh); } [data-proto="SMTP"] { --pc: var(--p-smtp); }
+[data-proto="BGP"] { --pc: var(--p-bgp); } [data-proto="NOTE"] { --pc: var(--p-note); }
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 18px 48px; display: grid; gap: 22px; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button, select, input { font: inherit; color: inherit; }
+
+/* Header */
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mark { font: 800 26px/1 var(--display); letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+.mark svg { width: 30px; height: 30px; }
+.tag { font: 500 12px var(--mono); color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* Ask */
+.ask { display: grid; gap: 12px; }
+.ask h1 { font: 800 clamp(30px, 5vw, 52px)/1.02 var(--display); letter-spacing: -0.03em; margin: 0; text-wrap: balance; max-width: 18ch; }
+.ask h1 em { font-style: normal; color: var(--accent); }
+.ask p.lede { margin: 0; color: var(--muted); max-width: 62ch; }
+.askbar { display: flex; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px; max-width: 760px; }
+.askbar input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 10px 14px; outline: none; font-size: 16px; }
+.askbar:focus-within { border-color: var(--accent); }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn svg { width: 16px; height: 16px; }
+.mic[aria-pressed="true"] { background: var(--warn); color: #fff; border-color: var(--warn); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.label { font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.suggest { border: 1px dashed var(--line); background: transparent; border-radius: 999px; padding: 5px 12px; cursor: pointer; color: var(--muted); font-size: 13px; }
+.suggest:hover { color: var(--ink); border-color: var(--accent); }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 7px 12px; cursor: pointer; font-size: 14px; }
+.chip[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+body[data-ai="off"] .ai-only { display: none; }
+.ai-note { display: none; font-size: 13px; color: var(--muted); }
+body[data-ai="off"] .ai-note { display: block; }
+.status { font-size: 14px; padding: 8px 12px; border-radius: 10px; background: var(--sunk); max-width: 760px; }
+.status[data-kind="error"] { color: var(--warn); }
+
+/* Lesson */
+.lesson { display: grid; gap: 14px; scroll-margin-top: 12px; }
+.lesson-head { display: grid; gap: 4px; }
+.lesson-head h2 { font: 700 clamp(22px, 3vw, 30px)/1.15 var(--display); margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+.lesson-head .q { color: var(--muted); margin: 0; }
+.badge { justify-self: start; font: 500 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; border: 1px solid currentColor; }
+.badge[data-kind="verified"] { color: var(--p-http); }
+.badge[data-kind="ai"] { color: var(--p-tls); }
+
+.bench { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; }
+
+.stage-wrap { overflow: hidden; }
+#stage { display: block; width: 100%; height: auto; }
+.grid-dot { fill: var(--line); }
+.link { stroke: var(--line); stroke-width: 3; }
+.link.active { stroke: var(--pc, var(--accent)); stroke-width: 4; stroke-dasharray: 2 9; stroke-linecap: round; animation: flow 0.6s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -11; } }
+.node-box { fill: var(--surface); stroke: var(--line); stroke-width: 2; }
+.node-icon { color: var(--ink); }
+.node-ring { fill: none; stroke: var(--accent); stroke-width: 2; opacity: 0; }
+.node.pulse .node-box { stroke: var(--accent); }
+.node.pulse .node-ring { animation: ring 1.4s ease-out infinite; }
+.node.dropped .node-box { stroke: var(--warn); }
+@keyframes ring { 0% { opacity: 0.8; r: 38; } 100% { opacity: 0; r: 60; } }
+.node-label { font: 600 14px var(--body); fill: var(--ink); }
+.node-kind { font: 500 10px var(--mono); letter-spacing: 0.08em; fill: var(--muted); }
+.packet { cursor: pointer; }
+.packet-body { fill: var(--pc); }
+.packet-text { font: 500 13px var(--mono); fill: #fff; }
+.packet.blocked .packet-body { fill: var(--warn); }
+.packet-inner.shake { animation: shake 0.45s; }
+@keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+.drop-x path { stroke: var(--warn); stroke-width: 4; stroke-linecap: round; }
+.caption rect { fill: var(--ink); }
+.caption text { font: 500 13px var(--body); fill: var(--bg); }
+.caption.warn rect { fill: var(--warn); }
+.caption.warn text { fill: #fff; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px; border-top: 1px solid var(--line); }
+.controls .spacer { flex: 1; }
+.controls select { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 8px 10px; }
+#play { min-width: 128px; justify-content: center; }
+#play[data-state="play"] .i-pause, #play[data-state="pause"] .i-play { display: none; }
+#voice[aria-pressed="false"] { color: var(--muted); }
+
+.side { display: grid; gap: 16px; min-width: 0; }
+.step { padding: 18px; display: grid; gap: 10px; outline: none; }
+.step-top { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.count { font: 500 12px var(--mono); color: var(--muted); letter-spacing: 0.04em; }
+.proto { font: 600 11px var(--mono); letter-spacing: 0.06em; color: #fff; background: var(--pc, var(--muted)); padding: 3px 8px; border-radius: 6px; }
+.path { font: 500 13px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.narration { font: 500 19px/1.45 var(--body); margin: 0; min-height: 4.4em; }
+.fields { margin: 0; display: grid; gap: 4px; background: var(--sunk); border-radius: 10px; padding: 10px 12px; font: 13px var(--mono); }
+.fields div { display: flex; gap: 12px; }
+.fields dt { color: var(--muted); min-width: 9ch; }
+.fields dd { margin: 0; overflow-wrap: anywhere; }
+.cites { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+.cites a { font: 500 12px var(--mono); text-decoration: none; border: 1px solid var(--line); padding: 3px 8px; border-radius: 6px; }
+.cites a:hover { border-color: var(--accent); }
+
+.followup { padding: 16px; display: grid; gap: 10px; }
+.followup h3 { margin: 0; font: 700 16px var(--display); }
+.followup form { display: flex; gap: 8px; }
+.followup input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 12px; }
+.answer { margin: 0; background: var(--sunk); border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; }
+
+.lower { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .lower { grid-template-columns: minmax(0, 1fr); } }
+.capture { overflow: hidden; }
+.capture h3, .sources h3 { margin: 0; padding: 14px 16px 8px; font: 700 16px var(--display); }
+.capture .scroll { overflow: auto; max-height: 340px; }
+table { border-collapse: collapse; width: 100%; font: 13px var(--mono); font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; color: var(--muted); padding: 6px 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); }
+td { padding: 7px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.num { color: var(--muted); width: 3ch; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--sunk); }
+tbody tr.current { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.sources ul { margin: 0; padding: 0 16px 16px 32px; display: grid; gap: 6px; font-size: 14px; }
+.how { padding: 16px; display: grid; gap: 8px; font-size: 14px; color: var(--muted); }
+.how strong { color: var(--ink); }
+.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+footer { font-size: 13px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .link.active, .node.pulse .node-ring, .packet-inner.shake { animation: none; } }
+@media (max-width: 720px) {
+  .stage-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #stage { width: 720px; max-width: none; }
+  .controls { gap: 6px; }
+  .controls .spacer { display: none; }
+  #replay { display: none; }
+}
+@media (max-width: 520px) { .narration { font-size: 17px; } .askbar { border-radius: 16px; flex-wrap: wrap; } .askbar input { flex-basis: 100%; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="mark">
+      <svg viewBox="0 0 30 30" aria-hidden="true"><circle cx="6" cy="15" r="4" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="24" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="24" cy="23" r="4" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M10 13.5L20 8.5M10 16.5L20 21.5" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/></svg>
+      V Learn
+    </div>
+    <span class="tag">Built at DSU × Wildfire Ignite 2026</span>
+  </header>
+
+  <section class="ask" aria-labelledby="ask-title">
+    <h1 id="ask-title">Don't memorise the network. <em>Watch it.</em></h1>
+    <p class="lede">Ask a networking question and see it happen: devices, packets moving between them, a tutor voice, and every step linked to the official standard that defines it.</p>
+    <form id="ask-form" class="askbar ai-only" autocomplete="off">
+      <label for="question" class="visually-hidden" hidden>Your networking question</label>
+      <input id="question" name="question" maxlength="300" placeholder="e.g. What happens when I ping a server?" aria-label="Your networking question">
+      <button type="button" class="btn mic" id="ask-mic" data-for="question" aria-label="Speak your question" aria-pressed="false" hidden>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5a2.5 2.5 0 0 1 2.5 2.5v4a2.5 2.5 0 0 1-5 0V4A2.5 2.5 0 0 1 8 1.5zM3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <button class="btn primary" id="ask-btn" type="submit">Show me</button>
+    </form>
+    <div class="row ai-only">
+      <span class="label">Try</span>
+      <button type="button" class="suggest">What happens when I ping a server?</button>
+      <button type="button" class="suggest">How does NAT let my whole house share one IP?</button>
+      <button type="button" class="suggest">How does an email get delivered?</button>
+    </div>
+    <p class="ai-note">Open this page in Claude while signed in to ask your own questions. The ready-made lessons below work for everyone.</p>
+    <p id="ask-status" class="status" role="status" aria-live="polite" hidden></p>
+    <div class="row" id="library"><span class="label">Ready-made lessons</span></div>
+  </section>
+
+  <section class="lesson" id="lesson" aria-labelledby="lesson-title">
+    <div class="lesson-head">
+      <span class="badge" id="lesson-badge"></span>
+      <h2 id="lesson-title"></h2>
+      <p class="q" id="lesson-question"></p>
+    </div>
+
+    <div class="bench">
+      <div class="panel stage-wrap">
+        <div class="stage-scroll"><svg id="stage" role="img" aria-label="Network diagram showing the current step"></svg></div>
+        <div class="controls">
+          <button class="btn" id="prev" type="button" aria-label="Previous step">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="btn primary" id="play" type="button" data-state="play" aria-label="Play">
+            <svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3l8 5-8 5z" fill="currentColor"/></svg>
+            <svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 3h3v10H4zM9 3h3v10H9z" fill="currentColor"/></svg>
+            <span id="play-text">Play lesson</span>
+          </button>
+          <button class="btn" id="next" type="button" aria-label="Next step">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="btn" id="replay" type="button">Replay step</button>
+          <span class="spacer"></span>
+          <label class="visually-hidden" for="speed" hidden>Speed</label>
+          <select id="speed" aria-label="Playback speed">
+            <option value="0.75">0.75×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.5">1.5×</option>
+          </select>
+          <button class="btn" id="voice" type="button" aria-pressed="true">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10L5 10H2zM11.5 5.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>
+            <span id="voice-text">Voice on</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="side">
+        <article class="panel step" id="step-card" tabindex="-1" aria-live="polite">
+          <div class="step-top"><span class="count" id="step-count"></span><span class="proto" id="step-proto"></span></div>
+          <div class="path" id="step-path"></div>
+          <p class="narration" id="step-narration"></p>
+          <dl class="fields" id="step-fields" hidden></dl>
+          <div class="cites"><span class="label">Source</span><span id="step-sources" class="cites"></span></div>
+        </article>
+
+        <section class="panel followup" aria-labelledby="fu-title">
+          <h3 id="fu-title">Stuck? Ask about this step</h3>
+          <form id="followup-form" class="ai-only" autocomplete="off">
+            <input id="followup-q" maxlength="300" placeholder="Why does it need a handshake?" aria-label="Your follow-up question">
+            <button type="button" class="btn mic" id="followup-mic" data-for="followup-q" aria-label="Speak your follow-up" aria-pressed="false" hidden>
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5a2.5 2.5 0 0 1 2.5 2.5v4a2.5 2.5 0 0 1-5 0V4A2.5 2.5 0 0 1 8 1.5zM3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+            <button class="btn primary" id="followup-btn" type="submit">Ask</button>
+          </form>
+          <p class="ai-note">Follow-up questions need Claude. Open this page in Claude while signed in.</p>
+          <p class="answer" id="followup-answer" aria-live="polite" hidden></p>
+        </section>
+      </div>
+    </div>
+
+    <div class="lower">
+      <section class="panel capture" aria-labelledby="cap-title">
+        <h3 id="cap-title">Packet log</h3>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>No.</th><th>Proto</th><th>Route</th><th>Info</th></tr></thead>
+            <tbody id="capture"></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="side">
+        <section class="panel sources" aria-labelledby="src-title">
+          <h3 id="src-title">Sources for this lesson</h3>
+          <ul id="sources-all"></ul>
+        </section>
+        <section class="panel how">
+          <strong>How V Learn stays accurate</strong>
+          <ol>
+            <li>Claude writes a lesson script. It never draws anything itself.</li>
+            <li>A validator checks every device, cable and step. Packets can't jump between devices that aren't connected.</li>
+            <li>Sources must come from a vetted list of RFCs and NIST guidance.</li>
+            <li>Anything that fails goes back to Claude to fix. If it still fails, you don't see it.</li>
+          </ol>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <footer>Space plays and pauses. Arrow keys step through. Click a row in the packet log to jump to it.</footer>
+</div>
+
+<script type="module" src="app.js"></script>
