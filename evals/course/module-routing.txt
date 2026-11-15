@@ -1,0 +1,19 @@
+[page 1]
+Week 7: Routing Basics
+A router connects different networks and forwards packets between them. Each router keeps a routing table: a list of destination networks and where to send packets for each one.
+
+[page 2]
+The default gateway
+A host only sends packets directly to devices on its own subnet. For anything else it sends the packet to its default gateway, usually the router. The host uses ARP to find the gateway's MAC address first.
+
+[page 3]
+Static and default routes
+An administrator can add static routes by hand, for example "10.0.4.0/24 via 10.0.2.2". A default route (0.0.0.0/0) catches every destination that has no more specific match. Routers choose the longest matching prefix.
+
+[page 4]
+TTL and traceroute
+Every IP packet carries a Time To Live. Each router decreases it by one; when it reaches zero the router drops the packet and sends an ICMP Time Exceeded message back. Traceroute uses this to discover each hop.
+
+[page 5]
+Lab tips
+Use show ip route on the router to see its table. Use ping to test reachability. Common mistakes: a missing return route, a wrong subnet mask, or a typo in the next-hop address.
