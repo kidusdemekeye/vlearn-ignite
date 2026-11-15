@@ -14,6 +14,17 @@ const LABELS = {
   fallback: "From your module · couldn't animate",
 };
 
+const NETWORK = /failed to fetch|networkerror|load failed|network ?error|err_network|econnrefused|enotfound/i;
+
+// What to show when building the video fails. Raw library or network errors are never shown.
+export function buildErrorText(e) {
+  if (e?.code === "rate_limited") return "Claude is busy right now. Wait a moment and try again.";
+  if (e?.code === "not_granted") return "Building a video needs permission to use Claude. Allow it from the page's permissions, or try the sample module.";
+  if (NETWORK.test(String(e?.message ?? ""))) return "Couldn't reach the AI. Check your connection and try again.";
+  if (e?.code || !e?.message || e?.name !== "Error" || /^Internal error/.test(e.message)) return "Something went wrong while building the video. Try again.";
+  return e.message;
+}
+
 function abortError() {
   const e = new Error("Aborted");
   e.name = "AbortError";

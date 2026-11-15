@@ -162,6 +162,21 @@ async function extractPdf(buffer, pdfjsLib) {
   return r;
 }
 
+const ERR_PASSWORD = "This PDF is password-protected. Remove the password and try again.";
+const ERR_UNREADABLE = "This file couldn't be read. Try exporting it again as a PDF.";
+const FRIENDLY = new Set([
+  ERR_EMPTY, ERR_TYPE,
+  "PDF reader is not loaded yet. Please try again in a moment.",
+  "File reader is not loaded yet. Please try again in a moment.",
+]);
+
+// What to show when reading a file fails. Library errors (pdf.js, JSZip, fetch) are never shown raw.
+export function readErrorText(e) {
+  if (FRIENDLY.has(e?.message)) return e.message;
+  if (e?.name === "PasswordException" || /password/i.test(String(e?.message ?? ""))) return ERR_PASSWORD;
+  return ERR_UNREADABLE;
+}
+
 export async function readModuleFile(file, { JSZip = globalThis.JSZip, pdfjsLib = globalThis.pdfjsLib } = {}) {
   const name = String(file.name || "");
   const m = /^(.*)\.([^.]+)$/.exec(name);

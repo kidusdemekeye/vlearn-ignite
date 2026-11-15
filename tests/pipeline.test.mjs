@@ -206,3 +206,20 @@ test("an outline question the prompt builder rejects becomes a fallback card, th
   assert.equal(result.items[1].title, "Cable types");
   assert.equal(seen.length, 2);
 });
+
+test("buildErrorText: network failures get a connection message; existing messages unchanged", async () => {
+  const { buildErrorText, OUTLINE_FAILED } = await import("../app/course.js");
+  const NET = "Couldn't reach the AI. Check your connection and try again.";
+  const GEN = "Something went wrong while building the video. Try again.";
+  assert.equal(buildErrorText(new TypeError("Failed to fetch")), NET);
+  assert.equal(buildErrorText(new TypeError("NetworkError when attempting to fetch resource.")), NET);
+  assert.equal(buildErrorText(new TypeError("Load failed")), NET);
+  assert.equal(buildErrorText(rateLimited()), "Claude is busy right now. Wait a moment and try again.");
+  assert.match(buildErrorText(Object.assign(new Error("x"), { code: "not_granted" })), /needs permission to use Claude/);
+  assert.equal(buildErrorText(Object.assign(new Error("AI request failed"), { code: "unavailable" })), GEN);
+  assert.equal(buildErrorText(new Error("Internal error: assembled course failed validation: x")), GEN);
+  assert.equal(buildErrorText(new SyntaxError("Unexpected token < in JSON at position 0")), GEN);
+  assert.equal(buildErrorText(undefined), GEN);
+  assert.equal(buildErrorText(new Error(OUTLINE_FAILED)), OUTLINE_FAILED);
+  assert.equal(buildErrorText(new Error("This module is not about networking.")), "This module is not about networking.");
+});

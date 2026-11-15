@@ -186,3 +186,28 @@ test("line breaks and tabs inside a paragraph keep words apart", () => {
     "<w:r><w:t>Layer</w:t><w:tab/><w:t>4</w:t><w:br/><w:t>Transport</w:t><w:br w:type=\"page\"/><w:t>end</w:t></w:r></w:p>";
   assert.equal(docXmlToText(doc), "Layer 4\nTransport\nend");
 });
+
+test("readErrorText maps library errors to plain messages and keeps friendly ones", async () => {
+  const { readErrorText } = await import("../app/ingest.js");
+  const err = (message, props = {}) => Object.assign(new Error(message), props);
+  const PW = "This PDF is password-protected. Remove the password and try again.";
+  const BAD = "This file couldn't be read. Try exporting it again as a PDF.";
+  assert.equal(readErrorText(err("No password given", { name: "PasswordException", code: 1 })), PW);
+  assert.equal(readErrorText(err("Incorrect Password", { name: "PasswordException", code: 2 })), PW);
+  assert.equal(readErrorText(err("Invalid PDF structure.", { name: "InvalidPDFException" })), BAD);
+  assert.equal(readErrorText(err("Corrupted zip: missing 12 bytes.")), BAD);
+  assert.equal(readErrorText(err("End of data reached (data length = 0, asked index = 4). Corrupted zip ?")), BAD);
+  assert.equal(readErrorText(new TypeError("Failed to fetch")), BAD);
+  assert.equal(readErrorText(undefined), BAD);
+  for (const keep of [NO_TEXT, BAD_TYPE, "PDF reader is not loaded yet. Please try again in a moment.", "File reader is not loaded yet. Please try again in a moment."]) {
+    assert.equal(readErrorText(new Error(keep)), keep);
+  }
+});
+
+test("readModuleFile surfaces a corrupt pptx as a library error that readErrorText maps", async () => {
+  const { readErrorText } = await import("../app/ingest.js");
+  const file = { name: "deck.pptx", arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer };
+  const e = await readModuleFile(file, { JSZip }).catch((x) => x);
+  assert.ok(e instanceof Error);
+  assert.equal(readErrorText(e), "This file couldn't be read. Try exporting it again as a PDF.");
+});

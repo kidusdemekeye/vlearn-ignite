@@ -6,8 +6,8 @@ import {
 import { GOLDEN_LESSONS } from "./lessons.js";
 import { Stage } from "./engine.js";
 import { connectAi } from "./ai.js";
-import { readModuleFile } from "./ingest.js";
-import { buildCourse } from "./course.js";
+import { readModuleFile, readErrorText } from "./ingest.js";
+import { buildCourse, buildErrorText } from "./course.js";
 import { osiSteps, OSI_LAYERS, OSI_CITATIONS } from "./osi.js";
 import { SAMPLE_MODULE, SAMPLE_COURSE } from "./samples/intro-module.js";
 
@@ -677,13 +677,6 @@ function newSession() {
   return video.gen;
 }
 
-function errorText(e) {
-  if (e?.code === "rate_limited") return "Claude is busy right now. Wait a moment and try again.";
-  if (e?.code === "not_granted") return "Building a video needs permission to use Claude. Allow it from the page's permissions, or try the sample module.";
-  if (e?.code || !e?.message || /^Internal error/.test(e.message)) return "Something went wrong while building the video. Try again.";
-  return e.message;
-}
-
 async function handleFile(file) {
   if (!file) return;
   const gen = newSession();
@@ -697,7 +690,7 @@ async function handleFile(file) {
   try {
     module = await readModuleFile(file, { JSZip: window.JSZip, pdfjsLib: window.pdfjsLib });
   } catch (e) {
-    if (!stale()) setModuleStatus(e?.message || "I couldn't read that file.", "error");
+    if (!stale()) setModuleStatus(readErrorText(e), "error");
     return;
   }
   if (stale()) return;
@@ -742,7 +735,7 @@ async function handleFile(file) {
     video.status = video.status.map((s) => (s === "building" || s === "waiting" ? "stopped" : s));
     renderProgress();
     wakeWaiters();
-    setModuleStatus(errorText(e), "error");
+    setModuleStatus(buildErrorText(e), "error");
   } finally {
     if (video.abort === controller) video.abort = null;
   }
