@@ -1,5 +1,6 @@
 // Server-side AI route logic (no framework). Called by api/ai.js on Vercel.
 // The Anthropic API key stays on the server; the browser never sees it.
+import { checkQuota, whoIsCalling } from "./billing-core.js";
 
 export const MODELS = {
   default: process.env.VLEARN_MODEL || "claude-sonnet-5-5",
@@ -21,12 +22,23 @@ function checkMessages(messages) {
   return total <= MAX_CHARS && messages[messages.length - 1].role === "user";
 }
 
-export async function handleAiRequest(body, { apiKey, fetch: fetchFn = globalThis.fetch } = {}) {
+export async function handleAiRequest(body, { apiKey, fetch: fetchFn = globalThis.fetch, quota } = {}) {
   const tier = body?.tier ?? "default";
   if (!body || !checkMessages(body.messages) || !(tier in MODELS)) {
     return { status: 400, body: { error: "Bad request." } };
   }
   if (!apiKey) return { status: 503, body: { error: "AI is not configured on this server." } };
+
+  // Plan budgets: a valid paid pass gets that plan's monthly AI budget; everyone else is Free (by IP).
+  if (quota?.store) {
+    const who = whoIsCalling({ pass: quota.pass, passSecret: quota.passSecret, ip: quota.ip, now: quota.now });
+    let q;
+    try { q = await checkQuota(quota.store, who.identity, who.plan, quota.now); }
+    catch { return { status: 503, body: { error: "Usage tracking is unavailable. Try again shortly." } }; }
+    if (!q.ok) {
+      return { status: 402, body: { error: `You've used this month's AI on the ${who.plan === "free" ? "Free" : who.plan === "student" ? "Student" : "Instructor"} plan.`, code: "quota", plan: who.plan, limit: q.limit } };
+    }
+  }
 
   let res;
   try {
