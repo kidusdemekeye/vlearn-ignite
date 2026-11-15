@@ -64,3 +64,13 @@ test("unknown focus throws", () => {
   assert.throws(() => osiSteps("nope"));
   assert.throws(() => osiSteps());
 });
+
+test("narration wording is precise about headers, PDUs and the medium", () => {
+  const enc = osiSteps("encapsulation");
+  assert.match(enc[14].narration, /Layers 4, 3 and 2 each removed the header that the sender's matching layer added\./);
+  assert.doesNotMatch(enc[14].narration, /Each layer removed its own header/);
+  assert.match(enc[7].narration, /The network medium carries signals that represent the bits/);
+  assert.doesNotMatch(enc[7].narration, /only carries bits/);
+  const l4 = OSI_LAYERS.find((l) => l.n === 4).narration;
+  assert.match(l4, /^Layer 4 adds a header with port numbers\. TCP splits data into segments; UDP sends each message as one datagram\./);
+});

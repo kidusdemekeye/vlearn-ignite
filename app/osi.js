@@ -10,7 +10,7 @@ export const OSI_LAYERS = [
   { n: 5, name: "Session", pdu: "data", example: "session setup and teardown",
     narration: "Layer 5 sets up, manages and tears down conversations between two programs. In the real internet, applications and transport protocols usually handle this work." },
   { n: 4, name: "Transport", pdu: "segment", example: "TCP, UDP",
-    narration: "Layer 4 splits data into segments (UDP calls its unit a datagram) and adds a header with port numbers. TCP also adds numbering and acknowledgements for reliable delivery." },
+    narration: "Layer 4 adds a header with port numbers. TCP splits data into segments; UDP sends each message as one datagram. TCP also adds numbering and acknowledgements for reliable delivery." },
   { n: 3, name: "Network", pdu: "packet", example: "IP",
     narration: "Layer 3 wraps the segment in a packet with an IP header holding source and destination addresses, so routers can forward it across networks toward its destination." },
   { n: 2, name: "Data Link", pdu: "frame", example: "Ethernet, Wi-Fi (802.11) MAC",
@@ -42,7 +42,7 @@ const UP = {
   4: ["Layer 4: remove the transport header", "Transport uses the port number to find the right program and removes its header. TCP also checks numbering and acknowledges receipt."],
   5: ["Layer 5: hand data to the session", "Session matches the data to the ongoing conversation between the two programs, then passes it upward."],
   6: ["Layer 6: decrypt and decode the data", "Presentation reverses the encoding and decrypts the data, so the application receives readable content."],
-  7: ["Layer 7: the app receives the data", "The application gets the original data, such as the HTTP request. Each layer removed its own header on the way up."],
+  7: ["Layer 7: the app receives the data", "The application gets the original data, such as the HTTP request. Layers 4, 3 and 2 each removed the header that the sender's matching layer added."],
 };
 
 const step = (side, layer, [caption, narration]) => ({ side, layer, caption, narration });
@@ -57,7 +57,7 @@ export function osiSteps(focus) {
   if (focus === "encapsulation") {
     return [
       ...LAYERS_DOWN.map((n) => step("sender", n, DOWN[n])),
-      step("medium", 1, ["Across the medium: bits travel", "The bits travel over the cable or through the air as radio signals to the receiving device. The network medium only carries bits."]),
+      step("medium", 1, ["Across the medium: bits travel", "The bits travel over the cable or through the air as radio signals to the receiving device. The network medium carries signals that represent the bits."]),
       ...[...LAYERS_DOWN].reverse().map((n) => step("receiver", n, UP[n])),
     ];
   }
