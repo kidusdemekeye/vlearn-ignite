@@ -1,0 +1,67 @@
+{
+  "outlines": [
+    {
+      "module": "intro",
+      "valid": true,
+      "items": [
+        "osi",
+        "lesson",
+        "lesson",
+        "lesson",
+        "lesson",
+        "card"
+      ],
+      "errors": []
+    },
+    {
+      "module": "routing",
+      "valid": true,
+      "items": [
+        "card",
+        "lesson",
+        "card",
+        "lesson",
+        "card"
+      ],
+      "errors": []
+    }
+  ],
+  "lessons": [
+    {
+      "file": "intro-lesson-01.txt",
+      "valid": true,
+      "steps": 12,
+      "errors": []
+    },
+    {
+      "file": "intro-lesson-02.txt",
+      "valid": true,
+      "steps": 6,
+      "errors": []
+    },
+    {
+      "file": "intro-lesson-03.txt",
+      "valid": true,
+      "steps": 10,
+      "errors": []
+    },
+    {
+      "file": "intro-lesson-04.txt",
+      "valid": true,
+      "steps": 7,
+      "errors": []
+    },
+    {
+      "file": "routing-lesson-01.txt",
+      "valid": true,
+      "steps": 8,
+      "errors": []
+    },
+    {
+      "file": "routing-lesson-03.txt",
+      "valid": true,
+      "steps": 7,
+      "errors": []
+    }
+  ]
+}
