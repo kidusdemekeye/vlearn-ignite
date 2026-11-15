@@ -1,0 +1,19 @@
+# AGENTS.md
+
+Instructions for any coding agent working in this repo (Claude Code, OpenCode, Codex…).
+
+## Process
+Spec → plan → tests first → build in small tasks → independent review → evals → ship.
+Read `docs/01-spec.md` and `docs/02-plan.md` before changing anything.
+
+## Rules
+- The lesson contract (`src/lesson-contract.ts`, mirrored in `app/core.js`) is the source of truth. Change it only with a test.
+- AI output is untrusted data: it must pass `validateLesson` before it reaches the engine.
+- Render text with `textContent`, never `innerHTML`.
+- No API keys or secrets anywhere in the repo.
+- Citations come only from the vetted library in `app/core.js`.
+- Write the failing test first, then the code. Run `npm test` before every commit.
+
+## Compounded learnings
+Add a line here whenever something went wrong or took longer than it should, so the next run is faster.
+- (start)
