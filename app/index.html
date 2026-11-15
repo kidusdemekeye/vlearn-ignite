@@ -53,6 +53,7 @@
 [data-proto="BGP"] { --pc: var(--p-bgp); } [data-proto="NOTE"] { --pc: var(--p-note); } [data-proto="802.11"] { --pc: var(--p-wifi); }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
@@ -181,6 +182,81 @@ tbody tr.current { background: color-mix(in srgb, var(--accent) 14%, transparent
 .how strong { color: var(--ink); }
 .how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
 footer { font-size: 13px; color: var(--muted); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.badge[data-kind="module"] { color: var(--accent); }
+.badge[data-kind="fallback"] { color: var(--muted); }
+
+/* Module upload */
+.module { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .module { grid-template-columns: minmax(0, 1fr); } }
+.module-intro { display: grid; gap: 10px; }
+.module h2 { font: 700 clamp(22px, 3vw, 30px)/1.15 var(--display); margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+.module p.lede { margin: 0; color: var(--muted); max-width: 62ch; }
+.drop { border: 1.5px dashed var(--line); padding: 18px; display: grid; gap: 10px; justify-items: start; transition: border-color 0.15s, background 0.15s; }
+.drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.drop-main { margin: 0; display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.drop-main svg { width: 22px; height: 22px; color: var(--accent); flex: none; }
+.file-btn { position: relative; }
+.file-btn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.privacy { display: flex; gap: 6px; align-items: flex-start; }
+.privacy svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.progress { padding: 14px 16px 16px; display: grid; gap: 8px; }
+.progress h3 { margin: 0; font: 700 16px var(--display); }
+.progress ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.prog-item { width: 100%; min-height: 40px; display: grid; grid-template-columns: 2.2ch minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left; background: transparent; border: 1px solid transparent; border-radius: 10px; padding: 6px 10px; cursor: pointer; }
+.prog-item:disabled { cursor: default; }
+.prog-item:not(:disabled):hover { border-color: var(--line); background: var(--sunk); }
+.prog-item[aria-current="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.prog-item .n { font: 500 12px var(--mono); color: var(--muted); }
+.prog-item .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prog-item .st { font: 500 11px var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+li[data-state="building"] .st { color: var(--accent); }
+li[data-state="ready"] .st { color: var(--p-http); }
+li[data-state="fallback"] .st, li[data-state="stopped"] .st { color: var(--warn); }
+li[data-state="building"] .st::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; margin-right: 6px; animation: blink 1s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: 0.2; } }
+
+/* Player screen: 2D svg, 3D canvas, 2D card, 2D OSI stack, waiting */
+.course-bar { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.course-bar .item-title { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 12ch; }
+.view3d { aspect-ratio: 16 / 9; background: var(--sunk); }
+.view3d canvas { outline: none; }
+.screen-alt { min-height: clamp(300px, 46vw, 540px); display: grid; align-content: center; padding: clamp(16px, 4vw, 40px); }
+.card2d { gap: 14px; justify-items: start; }
+.card2d h3 { margin: 0; font: 800 clamp(24px, 3.4vw, 38px)/1.1 var(--display); letter-spacing: -0.02em; text-wrap: balance; }
+.card2d ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; max-width: 60ch; }
+.card2d li { display: flex; gap: 12px; font-size: clamp(16px, 1.8vw, 19px); opacity: 0; transform: translateX(12px); transition: opacity 0.35s, transform 0.35s; }
+.card2d li::before { content: ""; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); margin-top: 0.5em; }
+.card2d li.on, .card2d .cites.on { opacity: 1; transform: none; }
+.card2d .cites { opacity: 0; transition: opacity 0.35s; }
+.cite-chip { font: 500 12px var(--mono); border: 1px solid var(--line); background: var(--sunk); color: var(--muted); padding: 3px 8px; border-radius: 6px; text-decoration: none; }
+a.cite-chip { color: var(--accent); background: transparent; }
+.osi2d { gap: 12px; }
+.osi-grid { display: grid; grid-template-columns: minmax(0, 1fr) clamp(36px, 10vw, 120px) minmax(0, 1fr); gap: 6px 0; align-items: stretch; }
+.osi-head { font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding: 0 4px 2px; }
+.osi-layer { --lc: var(--muted); display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-left: 5px solid var(--lc); border-radius: 8px; padding: 6px 10px; background: var(--surface); min-width: 0; transition: background 0.25s, border-color 0.25s, transform 0.25s; }
+.osi-layer .ln { font: 500 12px var(--mono); color: var(--muted); }
+.osi-layer .nm { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.osi-layer .pdu { font: 500 11px var(--mono); color: var(--muted); }
+.osi-layer.on { background: color-mix(in srgb, var(--lc) 18%, var(--surface)); border-color: var(--lc); transform: scale(1.03); }
+.osi-layer.on .pdu { color: var(--on-p); background: var(--lc); padding: 1px 6px; border-radius: 5px; }
+.osi-wire { align-self: center; height: 4px; margin: 0 6px; border-radius: 2px; background: var(--line); }
+.osi-wire.on { background: repeating-linear-gradient(90deg, var(--accent) 0 8px, transparent 8px 14px); background-size: 28px 4px; animation: wire 0.6s linear infinite; }
+@keyframes wire { to { background-position: 28px 0; } }
+.osi-cap { margin: 0; font: 600 clamp(16px, 2vw, 20px)/1.35 var(--body); text-align: center; min-height: 2.7em; }
+.waiting { justify-items: center; gap: 12px; color: var(--muted); text-align: center; }
+.waiting p { margin: 0; font: 600 18px var(--body); color: var(--ink); }
+.waiting .spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
+.waiting[data-kind="error"] .spin { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+.seg button { min-height: 38px; min-width: 44px; border: 0; background: transparent; border-radius: 999px; padding: 4px 12px; cursor: pointer; font: 600 13px var(--mono); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.seg button:disabled { opacity: 0.45; cursor: not-allowed; }
+.view-note { padding: 0 12px 10px; }
+.item-intro { margin: 0; font-size: 13px; color: var(--muted); }
+body[data-mode="video"] #replay { display: none; }
+@media (prefers-reduced-motion: reduce) { .card2d li, .osi-layer { transition: none; } .osi-wire.on, .waiting .spin, li[data-state="building"] .st::before { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .link.active, .node.pulse .node-ring, .packet-inner.shake { animation: none; } }
 @media (max-width: 720px) {
   .stage-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -188,6 +264,12 @@ footer { font-size: 13px; color: var(--muted); }
   .controls { gap: 6px; }
   .controls .spacer { display: none; }
   #replay { display: none; }
+  .view3d { aspect-ratio: 4 / 3; }
+  .course-bar .item-title, .course-bar .badge { display: none; }
+  .osi-layer { padding: 5px 7px; gap: 6px; }
+  .osi-layer .nm { font-size: 13px; }
+  .osi-layer .pdu { display: none; }
+  .osi-layer.on .pdu { display: inline; }
 }
 @media (max-width: 520px) { .narration { font-size: 17px; } .askbar { border-radius: 16px; flex-wrap: wrap; } .askbar input { flex-basis: 100%; } }
 </style>
@@ -223,6 +305,30 @@ footer { font-size: 13px; color: var(--muted); }
     <div class="row" id="library"><span class="label">Ready-made lessons</span></div>
   </section>
 
+  <section class="module" id="module" aria-labelledby="module-title">
+    <div class="module-intro">
+      <h2 id="module-title">Turn your class module into a video</h2>
+      <p class="lede">Upload the slides or notes from your networking class, and V Learn turns them into a narrated video of animated lessons, summary cards and the OSI model.</p>
+      <div class="panel drop" id="drop">
+        <p class="drop-main">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Drop a PDF, PowerPoint, Word or text file here
+        </p>
+        <div class="row">
+          <label class="btn primary file-btn">Choose a file<input type="file" id="module-file" class="sr-only" accept=".pdf,.pptx,.docx,.txt,.md"></label>
+          <button class="btn" id="sample-btn" type="button">Try the sample module</button>
+        </div>
+        <p class="fine privacy"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2M3.5 7h9v7h-9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Your file is read in your browser. Only its text is sent to the AI.</p>
+        <p class="ai-note">Turning your own file into a video needs an AI connection. Open this page in Claude while signed in. The sample module works for everyone.</p>
+      </div>
+      <p id="module-status" class="status" role="status" aria-live="polite" hidden></p>
+    </div>
+    <section class="panel progress" id="progress" aria-labelledby="progress-title" hidden>
+      <h3 id="progress-title"></h3>
+      <ol id="module-progress"></ol>
+    </section>
+  </section>
+
   <section class="lesson" id="lesson" aria-labelledby="lesson-title">
     <div class="lesson-head">
       <span class="badge" id="lesson-badge"></span>
@@ -232,7 +338,27 @@ footer { font-size: 13px; color: var(--muted); }
 
     <div class="bench">
       <div class="panel stage-wrap">
-        <div class="stage-scroll"><svg id="stage" role="img" aria-label="Network diagram showing the current step"></svg></div>
+        <div class="course-bar" id="course-bar" hidden>
+          <span class="count" id="item-count"></span>
+          <span class="item-title" id="item-title"></span>
+          <span class="badge" id="item-badge"></span>
+        </div>
+        <div class="stage-scroll" id="view2d"><svg id="stage" role="img" aria-label="Network diagram showing the current step"></svg></div>
+        <div class="view3d" id="view3d" hidden></div>
+        <div class="screen-alt card2d" id="card2d" hidden>
+          <span class="badge" id="card2d-badge"></span>
+          <h3 id="card2d-title"></h3>
+          <ul id="card2d-points"></ul>
+          <div class="cites" id="card2d-cites"></div>
+        </div>
+        <div class="screen-alt osi2d" id="osi2d" hidden>
+          <div class="osi-grid" id="osi-grid" role="img" aria-label="OSI layers on the sender and the receiver"></div>
+          <p class="osi-cap" id="osi-cap" aria-live="polite"></p>
+        </div>
+        <div class="screen-alt waiting" id="waiting" hidden>
+          <span class="spin" aria-hidden="true"></span>
+          <p id="waiting-text">Building the next part…</p>
+        </div>
         <div class="controls">
           <button class="btn" id="prev" type="button" aria-label="Previous step">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -247,6 +373,10 @@ footer { font-size: 13px; color: var(--muted); }
           </button>
           <button class="btn" id="replay" type="button">Replay step</button>
           <span class="spacer"></span>
+          <div class="seg" role="group" aria-label="View">
+            <button type="button" id="view-2d" aria-pressed="true">2D</button>
+            <button type="button" id="view-3d" aria-pressed="false">3D</button>
+          </div>
           <label class="visually-hidden" for="speed" hidden>Speed</label>
           <select id="speed" aria-label="Playback speed">
             <option value="0.75">0.75×</option>
@@ -258,12 +388,14 @@ footer { font-size: 13px; color: var(--muted); }
             <span id="voice-text">Voice on</span>
           </button>
         </div>
+        <p class="fine view-note" id="view-note" hidden></p>
       </div>
 
       <div class="side">
         <article class="panel step" id="step-card" tabindex="-1">
           <div class="step-top"><span class="count" id="step-count"></span><span class="proto" id="step-proto"></span></div>
           <div class="path" id="step-path"></div>
+          <p class="item-intro" id="item-intro" hidden></p>
           <p class="narration" id="step-narration" aria-live="polite"></p>
           <dl class="fields" id="step-fields" hidden></dl>
           <div class="cites"><span class="label">Source</span><span id="step-sources" class="cites"></span></div>
@@ -307,7 +439,7 @@ footer { font-size: 13px; color: var(--muted); }
             <li>A validator checks the structure of every lesson: real devices, packets only travel along real cables, every step cited.</li>
             <li>Sources must come from a vetted list of RFCs and NIST guidance.</li>
             <li>Anything that fails goes back to Claude to fix. If it still fails, you don't see it.</li>
-            <li>Ready-made lessons are hand-checked. AI lessons are labelled as structure-checked, so you always know which is which.</li>
+            <li>Ready-made lessons and the OSI scene are built in and were reviewed. AI lessons are labelled as structure-checked, and module summaries as AI summaries, so you always know which is which.</li>
           </ol>
         </section>
       </div>
@@ -317,6 +449,9 @@ footer { font-size: 13px; color: var(--muted); }
   <footer>Space plays and pauses. Arrow keys step through. Click a row in the packet log to jump to it.</footer>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
