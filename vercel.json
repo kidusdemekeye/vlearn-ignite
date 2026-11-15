@@ -1,5 +1,5 @@
 {
-  "buildCommand": null,
-  "outputDirectory": "app",
-  "functions": { "api/ai.js": { "maxDuration": 60 } }
+  "buildCommand": "node scripts/build.mjs",
+  "outputDirectory": "dist",
+  "functions": { "api/ai.js": { "maxDuration": 60 }, "api/billing.js": { "maxDuration": 30 } }
 }
