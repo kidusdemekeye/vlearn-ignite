@@ -1,0 +1,125 @@
+[
+  {
+    "id": "q01",
+    "q": "What happens when I ping a server?",
+    "result": "valid",
+    "steps": 11,
+    "devices": 4,
+    "citations": [
+      "rfc1122",
+      "rfc5737",
+      "rfc826",
+      "rfc792",
+      "rfc3022",
+      "rfc1918",
+      "rfc791"
+    ]
+  },
+  {
+    "id": "q02",
+    "q": "How does NAT let my whole house share one public IP address?",
+    "result": "valid",
+    "steps": 11,
+    "devices": 5,
+    "citations": [
+      "rfc1918",
+      "rfc9293",
+      "rfc5737",
+      "rfc3022"
+    ]
+  },
+  {
+    "id": "q03",
+    "q": "How does an email get from my laptop to my friend's inbox?",
+    "result": "valid",
+    "steps": 11,
+    "devices": 6,
+    "citations": [
+      "rfc9293",
+      "rfc5737",
+      "rfc8446",
+      "rfc5321",
+      "rfc1035",
+      "rfc1034"
+    ]
+  },
+  {
+    "id": "q04",
+    "q": "What does traceroute actually do?",
+    "result": "valid",
+    "steps": 12,
+    "devices": 5,
+    "citations": [
+      "rfc791",
+      "rfc768",
+      "rfc792",
+      "rfc1122"
+    ]
+  },
+  {
+    "id": "q05",
+    "q": "How does a TCP connection close?",
+    "result": "valid",
+    "steps": 9,
+    "devices": 3,
+    "citations": [
+      "rfc9293"
+    ]
+  },
+  {
+    "id": "q06",
+    "q": "What happens when I SSH into a server?",
+    "result": "valid",
+    "steps": 12,
+    "devices": 4,
+    "citations": [
+      "rfc9293",
+      "rfc5737",
+      "rfc4253"
+    ]
+  },
+  {
+    "id": "q07",
+    "q": "How does a switch learn which port a device is on?",
+    "result": "valid",
+    "steps": 11,
+    "devices": 4,
+    "citations": [
+      "rfc826",
+      "rfc791"
+    ]
+  },
+  {
+    "id": "q08",
+    "q": "Why does my browser use QUIC for some websites?",
+    "result": "valid",
+    "steps": 12,
+    "devices": 4,
+    "citations": [
+      "rfc9293",
+      "rfc8446",
+      "rfc9113",
+      "rfc9114",
+      "rfc9000",
+      "rfc768"
+    ]
+  },
+  {
+    "id": "q09",
+    "q": "How does DNS caching make websites load faster?",
+    "result": "valid",
+    "steps": 15,
+    "devices": 7,
+    "citations": [
+      "rfc1034",
+      "rfc1035",
+      "rfc5737"
+    ]
+  },
+  {
+    "id": "q10",
+    "q": "What is a good recipe for banana bread?",
+    "result": "declined",
+    "message": "V Learn can only help with computer networking questions, like how DNS, TCP or Wi-Fi work."
+  }
+]

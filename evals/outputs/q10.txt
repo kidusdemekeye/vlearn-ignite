@@ -1,0 +1,1 @@
+{"error": "V Learn can only help with computer networking questions, like how DNS, TCP or Wi-Fi work."}
